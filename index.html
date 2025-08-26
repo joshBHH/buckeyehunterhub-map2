@@ -4,94 +4,282 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Buckeye Hunter Hub — Mobile Hunting Map</title>
+  
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Leaflet.draw -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <!-- SunCalc for sunrise/sunset -->
+  <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+
   <style>
     :root{
-      --bg:#0b1a0f;
-      --panel:#101f14;
-      --accent:#6dbc5d;
+      --bg:#0b1a0f;        /* deep forest */
+      --panel:#101f14;     /* card */
+      --muted:#1a2b1f;
+      --accent:#6dbc5d;    /* green */
       --text:#e7f1e8;
       --subtle:#a3b7a6;
+      --danger:#f87171;
       --shadow:0 12px 30px rgba(0,0,0,.35);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Roboto,Arial,sans-serif}
     #map{position:fixed;inset:0}
+    #map.placing{cursor: crosshair}
 
-    /* Marker Menu */
-    .fab-main{position:fixed;right:16px;bottom:100px;width:56px;height:56px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;z-index:1000;box-shadow:var(--shadow)}
-    .marker-menu{position:fixed;right:16px;bottom:160px;background:var(--panel);border:1px solid #203325;border-radius:16px;box-shadow:var(--shadow);padding:8px;display:none;flex-direction:column;gap:8px;z-index:1000}
-    .marker-menu button{padding:8px 10px;border:none;border-radius:12px;background:#14271a;color:var(--text);text-align:left}
+    /* Marker Menu (FAB + popup) */
+    .fab-main{position:fixed;right:16px;bottom:120px;width:56px;height:56px;border-radius:50%;border:none;background:var(--accent);color:#0b1a0f;font-size:32px;display:flex;align-items:center;justify-content:center;z-index:1100;box-shadow:var(--shadow)}
+    .marker-menu{position:fixed;right:16px;bottom:186px;background:linear-gradient(180deg,rgba(16,31,20,.98),rgba(16,31,20,.94));border:1px solid #203325;border-radius:16px;box-shadow:var(--shadow);padding:8px;display:none;flex-direction:column;gap:8px;z-index:1100;backdrop-filter:blur(6px)}
+    .marker-menu button{padding:10px 12px;border:1px solid #25432b;border-radius:12px;background:#132218;color:var(--text);text-align:left}
     .marker-menu.show{display:flex}
 
-    /* Bottom nav */
-    .nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:10px 12px;background:#0f2014;border-top:1px solid #203325;z-index:900}
-    .nav .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;color:var(--subtle)}
-    .nav .tab.active{color:var(--text)}
+    /* Bottom toolbar */
+    .toolbar{position:fixed;right:12px;bottom:calc(12px + var(--safe-bottom));z-index:1050;background:linear-gradient(180deg,rgba(16,31,20,.98),rgba(16,31,20,.94));border:1px solid #203325;border-radius:14px;padding:8px 10px;box-shadow:var(--shadow);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .toolbar button,label.button{padding:8px 12px;border:1px solid #25432b;border-radius:10px;background:#14271a;color:var(--text);cursor:pointer}
+    .toolbar input[type="file"]{display:none}
+
+    /* Info panels */
+    .panel{position:fixed;left:12px;top:12px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;min-width:230px;max-width:min(90vw,360px)}
+    .panel h3{margin:0 0 8px;font-size:16px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #1d3323}
+    .row:last-child{border-bottom:0}
+    .tag{font-size:12px;color:var(--subtle)}
+
+    /* Wind/Sun badge near center */
+    .overlay-badge{position:fixed;left:50%;transform:translateX(-50%);bottom:210px;z-index:1000;background:#132218;border:1px solid #24412d;border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+
+    /* Mobile tweaks */
+    @media (max-width:640px){
+      .panel{left:8px;top:8px;max-width:260px}
+      .toolbar{left:8px;right:8px;justify-content:center}
+      .fab-main{right:12px;bottom:120px}
+      .marker-menu{right:12px;bottom:186px}
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="map"></div>
 
-    <!-- Main Marker FAB -->
-    <button id="fabMain" class="fab-main">＋</button>
+    <!-- FAB + Menu for markers -->
+    <button id="fabMain" class="fab-main" title="Add marker">＋</button>
     <div id="markerMenu" class="marker-menu">
-      <button data-type="stand">Tree Stand</button>
-      <button data-type="feeder">Feeder</button>
-      <button data-type="camera">Trail Camera</button>
-      <button data-type="scrape">Scrape</button>
-      <button data-type="rub">Rub</button>
-      <button data-type="water">Water Source</button>
+      <button data-type="stand">🎯 Tree Stand</button>
+      <button data-type="feeder">🍽️ Feeder</button>
+      <button data-type="camera">📷 Trail Camera</button>
+      <button data-type="scrape">🦌 Scrape</button>
+      <button data-type="rub">🪵 Rub</button>
+      <button data-type="water">💧 Water Source</button>
     </div>
 
-    <!-- Bottom Navigation -->
-    <nav class="nav">
-      <a class="tab active" data-panel="layers">Layers</a>
-      <a class="tab" data-panel="saved">Saved</a>
-      <a class="tab" data-panel="measure">Measure</a>
-      <a class="tab" data-panel="account">Account</a>
-    </nav>
+    <!-- Bottom toolbar: export/import, clear, delete-mode toggle -->
+    <div class="toolbar" id="mainToolbar">
+      <button id="btnExport" title="Export drawings & markers">Export</button>
+      <label class="button" for="fileImport" title="Import JSON/GeoJSON">Import</label>
+      <input type="file" id="fileImport" accept=".json,.geojson,application/json,application/geo+json" />
+      <button id="btnClear" title="Clear all">Clear</button>
+      <button id="btnDeleteMode" title="Toggle delete mode">🗑️ Delete: Off</button>
+    </div>
+
+    <!-- Info panel: sunrise/sunset + measurements -->
+    <section class="panel" id="infoPanel">
+      <h3>Field Info</h3>
+      <div class="row"><span>Sunrise</span><strong id="pSunrise" class="tag">--:--</strong></div>
+      <div class="row"><span>Sunset</span><strong id="pSunset" class="tag">--:--</strong></div>
+      <div class="row"><span>Day Length</span><strong id="pDay" class="tag">--h --m</strong></div>
+      <div class="row"><span>Total Distance</span><strong id="pDist" class="tag">0 m</strong></div>
+      <div class="row"><span>Area</span><strong id="pArea" class="tag">0 m²</strong></div>
+      <p class="tag">Tap ＋ to select a marker type, then tap the map to place. Toggle 🗑️ to remove with a tap.</p>
+    </section>
+
+    <!-- Wind badge -->
+    <div class="overlay-badge" id="windBadge">💨 Wind: <span id="windDir">N</span></div>
   </div>
 
-  <!-- Leaflet core -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- SunCalc -->
-  <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
-
   <script>
-    // Initialize Leaflet map (layout from your provided code)
-    const map = L.map('map').setView([40.4173, -82.9071], 6);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', {
-      attribution: '&copy; MapTiler & OpenStreetMap contributors'
-    }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', {
-      attribution: '&copy; MapTiler'
-    });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', {
-      attribution: '&copy; MapTiler & OpenStreetMap contributors'
-    });
+    /*******************
+     * MAP & BASELAYERS *
+     *******************/
+    const map = L.map('map').setView([40.4173, -82.9071], 7);
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
-    // FAB marker menu toggle
-    const fab=document.getElementById('fabMain');
-    const menu=document.getElementById('markerMenu');
-    fab.addEventListener('click',()=> menu.classList.toggle('show'));
+    /*******************
+     * DRAWING LAYERS  *
+     *******************/
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawControl = new L.Control.Draw({
+      position:'topleft',
+      edit:{ featureGroup: drawnItems },
+      draw:{ circle:false }
+    });
+    map.addControl(drawControl);
 
-    menu.querySelectorAll('button').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const type=btn.dataset.type;
-        alert('Place marker: '+type); // Replace with actual placement logic
-        menu.classList.remove('show');
+    // Persist drawings
+    const STORAGE_DRAW = 'bhh_drawings_v1';
+    function saveDraw(){ localStorage.setItem(STORAGE_DRAW, JSON.stringify(drawnItems.toGeoJSON())); updateMeasurements(); }
+    function restoreDraw(){ const raw = localStorage.getItem(STORAGE_DRAW); if(raw){ L.geoJSON(JSON.parse(raw), { onEachFeature:(_,layer)=> drawnItems.addLayer(layer) }); updateMeasurements(); } }
+    restoreDraw();
+
+    map.on(L.Draw.Event.CREATED, e=>{ drawnItems.addLayer(e.layer); saveDraw(); });
+    map.on(L.Draw.Event.EDITED, saveDraw);
+    map.on(L.Draw.Event.DELETED, saveDraw);
+
+    /*******************
+     * MARKERS LAYER    *
+     *******************/
+    const markersLayer = L.featureGroup().addTo(map);
+    const STORAGE_MARK = 'bhh_markers_v1';
+    const IS_MOBILE = matchMedia('(max-width:640px)').matches;
+    const ICON_SZ = IS_MOBILE ? 28 : 32;
+    const FONT_SZ = IS_MOBILE ? 16 : 18;
+
+    function makeIcon(bg,emoji){
+      return L.divIcon({
+        className:'',
+        html:`<div style="background:${bg};border:2px solid #333;border-radius:50%;width:${ICON_SZ}px;height:${ICON_SZ}px;display:flex;align-items:center;justify-content:center;font-size:${FONT_SZ}px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);">${emoji}</div>`,
+        iconSize:[ICON_SZ,ICON_SZ], iconAnchor:[ICON_SZ/2, ICON_SZ], popupAnchor:[0, -ICON_SZ*0.9]
       });
+    }
+
+    const markerTypes = {
+      stand:{label:'Tree Stand', icon:makeIcon('#2563eb','🎯')},
+      feeder:{label:'Feeder', icon:makeIcon('#16a34a','🍽️')},
+      camera:{label:'Trail Camera', icon:makeIcon('#111827','📷')},
+      scrape:{label:'Scrape', icon:makeIcon('#6d28d9','🦌')},
+      rub:{label:'Rub', icon:makeIcon('#b45309','🪵')},
+      water:{label:'Water Source', icon:makeIcon('#0891b2','💧')}
+    };
+
+    let activeType=null; let deleteMode=false;
+    function setActiveType(type){ activeType=type; document.getElementById('map').classList.toggle('placing', !!type); }
+
+    function addMarker(latlng, type){
+      const cfg = markerTypes[type] || {label:'Marker', icon:makeIcon('#555','📍')};
+      const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type });
+      m.bindPopup(`<b>${cfg.label}</b><br><button class="del">Delete</button>`);
+      m.on('dragend', saveMarkers);
+      m.on('click', () => {
+        if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); }
+      });
+      m.on('popupopen', (e)=>{
+        const btn = e.popup.getElement().querySelector('button.del');
+        if(btn) btn.addEventListener('click', ()=> { markersLayer.removeLayer(m); saveMarkers(); });
+      });
+      markersLayer.addLayer(m);
+      saveMarkers();
+    }
+
+    // Persist markers
+    function serializeMarkers(){ const list=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); list.push({type:m.options.type||'marker', lat, lng}); }); return list; }
+    function deserializeMarkers(list){ markersLayer.clearLayers(); (list||[]).forEach(m=> addMarker([m.lat,m.lng], m.type)); }
+    function saveMarkers(){ localStorage.setItem(STORAGE_MARK, JSON.stringify(serializeMarkers())); refreshSavedMetrics(); }
+    (function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
+
+    // Click-to-place
+    map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); });
+
+    /*******************
+     * LAYERS CONTROL   *
+     *******************/
+    L.control.layers(
+      { 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
+      { 'My Drawings':drawnItems, 'Hunt Markers':markersLayer },
+      { position:'bottomleft' }
+    ).addTo(map);
+
+    /*******************
+     * TOOLBAR ACTIONS  *
+     *******************/
+    const btnExport = document.getElementById('btnExport');
+    const btnClear  = document.getElementById('btnClear');
+    const btnDelete = document.getElementById('btnDeleteMode');
+    const fileInput = document.getElementById('fileImport');
+
+    btnExport.onclick = () => {
+      const data = { drawings: drawnItems.toGeoJSON(), markers: serializeMarkers() };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url);
+    };
+    btnClear.onclick = () => { drawnItems.clearLayers(); saveDraw(); markersLayer.clearLayers(); saveMarkers(); };
+    btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `🗑️ Delete: ${deleteMode? 'On':'Off'}`; };
+    fileInput.onchange = (ev) => {
+      const f = ev.target.files[0]; if(!f) return; const r=new FileReader();
+      r.onload = () => { try{ const obj = JSON.parse(r.result);
+        if(obj.type==='FeatureCollection' || obj.type==='Feature'){ L.geoJSON(obj, {onEachFeature:(_,l)=>drawnItems.addLayer(l)}); saveDraw(); }
+        else { if(obj.drawings) L.geoJSON(obj.drawings, {onEachFeature:(_,l)=>drawnItems.addLayer(l)}); if(obj.markers) deserializeMarkers(obj.markers); saveDraw(); saveMarkers(); }
+      } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; } };
+      r.readAsText(f);
+    };
+
+    /*******************
+     * SUN / WIND INFO  *
+     *******************/
+    function updateSun(){
+      const c = map.getCenter();
+      const now = new Date();
+      const t = SunCalc.getTimes(now, c.lat, c.lng);
+      const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
+      document.getElementById('pSunrise').textContent = fmt(t.sunrise);
+      document.getElementById('pSunset').textContent  = fmt(t.sunset);
+      const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0);
+      document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`;
+    }
+    updateSun(); map.on('moveend', updateSun);
+
+    // Simple wind direction controller via arrow keys
+    const dirs=['N','NE','E','SE','S','SW','W','NW'];
+    window.addEventListener('keydown', (e)=>{
+      const el = document.getElementById('windDir');
+      let i = dirs.indexOf(el.textContent);
+      if(e.key==='ArrowRight'){ i=(i+1+8)%8; el.textContent=dirs[i]; }
+      if(e.key==='ArrowLeft'){  i=(i-1+8)%8; el.textContent=dirs[i]; }
     });
 
-    // Bottom nav switching
-    document.querySelectorAll('.nav .tab').forEach(tab=>{
-      tab.addEventListener('click',()=>{
-        document.querySelectorAll('.nav .tab').forEach(t=>t.classList.remove('active'));
-        tab.classList.add('active');
+    /*******************
+     * MEASUREMENTS     *
+     *******************/
+    function refreshSavedMetrics(){ /* markers change doesn't affect distance/area but keeps timing consistent */ }
+    function updateMeasurements(){
+      // Distance: sum of polylines
+      let dist=0; drawnItems.eachLayer(l=>{
+        if(l instanceof L.Polyline && !(l instanceof L.Polygon)){
+          const latlngs = l.getLatLngs();
+          for(let i=1;i<latlngs.length;i++){ dist += map.distance(latlngs[i-1], latlngs[i]); }
+        }
       });
-    });
+      document.getElementById('pDist').textContent = dist>1000 ? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m';
+
+      // Area: polygons
+      let area=0; drawnItems.eachLayer(l=>{
+        if(l instanceof L.Polygon){ area += L.GeometryUtil ? L.GeometryUtil.geodesicArea(l.getLatLngs()[0]) : Math.abs(L.GeometryUtil ? 0 : 0); }
+      });
+      // If GeometryUtil not available, approximate using Leaflet's planar method
+      if(area===0){ drawnItems.eachLayer(l=>{ if(l instanceof L.Polygon){ const latlngs=l.getLatLngs()[0]; area += Math.abs(L.Polygon.prototype._getArea? L.Polygon.prototype._getArea.call(l):0); } }); }
+      const areaEl=document.getElementById('pArea');
+      if(area>1e6) areaEl.textContent=(area/1e6).toFixed(2)+' km²';
+      else if(area>1e4) areaEl.textContent=(area/1e4).toFixed(1)+' ha';
+      else areaEl.textContent=Math.round(area)+' m²';
+    }
+    map.on(L.Draw.Event.CREATED, updateMeasurements);
+    map.on(L.Draw.Event.EDITED, updateMeasurements);
+    map.on(L.Draw.Event.DELETED, updateMeasurements);
+
+    /*******************
+     * UI WIRING        *
+     *******************/
+    const fab = document.getElementById('fabMain');
+    const menu = document.getElementById('markerMenu');
+    fab.onclick = ()=> menu.classList.toggle('show');
+    menu.querySelectorAll('button[data-type]').forEach(btn=> btn.addEventListener('click', ()=>{ setActiveType(btn.dataset.type); menu.classList.remove('show'); }));
+
   </script>
 </body>
 </html>
