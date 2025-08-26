@@ -194,9 +194,9 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
