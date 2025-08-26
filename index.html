@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Buckeye Hunter Hub — Mobile Hunting Map</title>
+  <meta name="theme-color" content="#0b1a0f" />
+  <style>
+    :root{
+      --bg:#0b1a0f; /* deep forest */
+      --panel:#101f14; /* card */
+      --muted:#1a2b1f;
+      --accent:#6dbc5d; /* green */
+      --text:#e7f1e8;
+      --subtle:#a3b7a6;
+      --danger:#f87171;
+      --shadow:0 12px 30px rgba(0,0,0,.35);
+    }
+    html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    #map{position:fixed;inset:0}
+
+    /* Draggable floating toolbar */
+    .toolbar{position:fixed;left:12px;bottom:110px;display:flex;gap:8px;flex-wrap:wrap;max-width:min(94vw,360px);padding:10px;background:linear-gradient(180deg,rgba(16,31,20,.95),rgba(16,31,20,.92));border:1px solid #203325;border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(6px);z-index:1000;touch-action:none}
+    .toolbar header{width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+    .drag-handle{cursor:grab;font-size:12px;color:var(--subtle);user-select:none}
+    .btn{border:1px solid #25432b;background:#132218;border-radius:14px;padding:8px 10px;display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--text);opacity:.9}
+    .btn:hover{opacity:1}
+    .btn.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(109,188,93,.25) inset}
+    .btn svg{width:20px;height:20px}
+
+    /* Locate button positioned above nav */
+    .locate{position:fixed;right:12px;bottom:110px;z-index:1000}
+    .fab{width:48px;height:48px;border-radius:16px;border:1px solid #25432b;background:#14271a;display:grid;place-items:center;box-shadow:var(--shadow)}
+
+    /* Bottom nav */
+    .nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:10px 12px;background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;z-index:900}
+    .nav .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;color:var(--subtle)}
+    .nav .tab.active{color:var(--text)}
+
+    /* Panels */
+    .panel{position:fixed;left:0;right:0;bottom:64px;max-height:55vh;margin:12px;padding:12px;background:var(--panel);border:1px solid #203325;border-radius:18px;box-shadow:var(--shadow);z-index:950;display:none;overflow:auto}
+    .panel.show{display:block}
+    .panel h3{margin:8px 0 10px;font-size:16px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #1d3323}
+    .row:last-child{border-bottom:0}
+    .switch{appearance:none;width:40px;height:24px;background:#24382a;border-radius:999px;position:relative;outline:none;border:1px solid #2b4334}
+    .switch:checked{background:#275136}
+    .switch::after{content:"";position:absolute;width:18px;height:18px;top:2px;left:2px;border-radius:50%;background:#bfe9b8;transition:transform .2s}
+    .switch:checked::after{transform:translateX(16px)}
+
+    .tag{font-size:12px;color:var(--subtle)}
+    .pill{border:1px solid #2a4732;background:#14281b;border-radius:999px;padding:4px 8px;font-size:12px}
+
+    /* Toast */
+    .toast{position:fixed;left:12px;top:12px;background:#14271a;border:1px solid #24412d;padding:8px 12px;border-radius:12px;z-index:1200;opacity:0;transform:translateY(-8px);transition:.2s}
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    /* Small screens */
+    @media (min-width:768px){
+      .toolbar{left:16px;bottom:120px}
+      .locate{right:16px;bottom:120px}
+      .panel{left:auto;right:12px;width:420px}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+
+    <!-- Draggable Toolbar: marker tools -->
+    <div class="toolbar" id="toolbar">
+      <header>
+        <span class="drag-handle">⠿ Tools</span>
+        <button id="clearTool" class="btn" title="Deselect tool">Clear</button>
+      </header>
+      <button class="btn tool" data-tool="stand" title="Tree Stand">${icon('stand')}</button>
+      <button class="btn tool" data-tool="feeder" title="Feeder">${icon('feeder')}</button>
+      <button class="btn tool" data-tool="camera" title="Trail Camera">${icon('camera')}</button>
+      <button class="btn tool" data-tool="scrape" title="Scrape">${icon('scrape')}</button>
+      <button class="btn tool" data-tool="rub" title="Rub">${icon('rub')}</button>
+      <button class="btn tool" data-tool="water" title="Water Source">${icon('water')}</button>
+      <button class="btn" id="deleteMode" title="Delete Mode">🗑️ Delete</button>
+    </div>
+
+    <!-- Locate Me FAB -->
+    <div class="locate"><button id="locateBtn" class="fab" title="Locate me">📍</button></div>
+
+    <!-- Bottom Navigation -->
+    <nav class="nav" id="nav">
+      <a class="tab active" data-panel="layers" title="Layers">${tabIcon('layers')}<small>Layers</small></a>
+      <a class="tab" data-panel="saved" title="Saved">${tabIcon('saved')}<small>Saved</small></a>
+      <a class="tab" data-panel="measure" title="Measure">${tabIcon('measure')}<small>Measure</small></a>
+      <a class="tab" data-panel="account" title="Account">${tabIcon('account')}<small>Account</small></a>
+    </nav>
+
+    <!-- Panels -->
+    <section class="panel show" id="panel-layers">
+      <h3>Map Layers</h3>
+      <div class="row"><span>Public Lands (demo)</span><input type="checkbox" id="togglePublic" class="switch" /></div>
+      <div class="row"><span>Property Boundaries (user shapes)</span><span class="tag">use Draw tools</span></div>
+      <div class="row"><span>Wind Indicator</span><input type="checkbox" id="toggleWind" class="switch" /></div>
+      <div class="row"><span>Sunrise/Sunset</span><input type="checkbox" id="toggleSun" class="switch" /></div>
+      <p class="tag">Tip: tap a tool then tap the map to place a marker. Tap <span class="pill">Clear</span> to deselect.</p>
+    </section>
+
+    <section class="panel" id="panel-saved">
+      <h3>Saved Spots</h3>
+      <div id="savedList" class="tag">No spots saved yet.</div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button id="exportBtn" class="btn">Export GeoJSON</button><button id="importBtn" class="btn">Import</button></div>
+      <input id="importFile" type="file" accept="application/json,.geojson" hidden />
+    </section>
+
+    <section class="panel" id="panel-measure">
+      <h3>Measurement</h3>
+      <div class="row"><span>Distance/Area (Draw)</span><button id="measureToggle" class="btn">Start Measuring</button></div>
+      <div class="row"><span>Total Distance</span><strong id="distOut" class="tag">0 m</strong></div>
+      <div class="row"><span>Area</span><strong id="areaOut" class="tag">0 m²</strong></div>
+      <p class="tag">Use the draw tools to sketch lines (distance) or polygons (area). Click a drawing to remove it.</p>
+    </section>
+
+    <section class="panel" id="panel-account">
+      <h3>Account & Settings</h3>
+      <div class="row"><span>Dark Mode</span><span class="pill">Always On 🌙</span></div>
+      <div class="row"><span>Storage</span><button id="wipe" class="btn">Clear Local Data</button></div>
+      <p class="tag">All data is stored in your browser (localStorage). No server required.</p>
+    </section>
+
+    <div id="toast" class="toast">Saved.</div>
+  </div>
+
+  <!-- Google Maps JS API (replace YOUR_API_KEY) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,drawing"></script>
+  <!-- SunCalc for sunrise/sunset -->
+  <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+
+  <script>
+    // === SVG ICONS ===
+    function icon(name){
+      const d = {
+        stand:'M5 18 L12 4 L19 18 M7 18 H17 M12 4 V2',
+        feeder:'M6 6 H18 V10 H6 Z M10 10 V18 M14 10 V18',
+        camera:'M8 9 H16 V15 H8 Z M10 7 H14',
+        scrape:'M6 16 C9 12, 15 12, 18 16',
+        rub:'M12 4 V20 M12 10 L8 14 M12 10 L16 14',
+        water:'M12 5 C9 9, 7 12, 7 14 A5 5 0 0 0 17 14 C17 12, 15 9, 12 5 Z'
+      }[name] || 'M4 12 H20';
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="${'#bfe9b8'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+    }
+    function tabIcon(type){
+      const p={
+        layers:'M12 3 L3 7 L12 11 L21 7 Z M3 12 L12 16 L21 12 M3 17 L12 21 L21 17',
+        saved:'M6 4 H18 V20 L12 16 L6 20 Z',
+        measure:'M3 12 H21 M7 8 V16 M15 6 V18',
+        account:'M12 12 A4 4 0 1 0 12 4 A4 4 0 1 0 12 12 Z M4 20 A8 5 0 0 1 20 20'
+      }[type];
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#bfe9b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`
+    }
+
+    // === MAP INIT ===
+    let map, drawingManager;
+    const markers=[]; // {g:Marker, type:string}
+    const drawings=[]; // Google MVC objects
+    let activeTool=null; let deleteMode=false;
+    let publicLayer=null; let windOverlay=null; let sunOverlay=null;
+
+    function init(){
+      map = new google.maps.Map(document.getElementById('map'),{
+        center:{lat:40.4173,lng:-82.9071}, // Ohio center
+        zoom:7,
+        disableDefaultUI:true,
+        gestureHandling:'greedy',
+        styles: darkStyle
+      });
+
+      // Drawing Manager (off by default)
+      drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: true,
+        drawingControlOptions:{position:google.maps.ControlPosition.TOP_RIGHT,
+          drawingModes:['polygon','polyline','rectangle']},
+        polygonOptions:{strokeColor:'#6dbc5d',fillColor:'#6dbc5d',fillOpacity:0.15},
+        rectangleOptions:{strokeColor:'#6dbc5d',fillColor:'#6dbc5d',fillOpacity:0.08},
+        polylineOptions:{strokeColor:'#6dbc5d'}
+      });
+      drawingManager.setMap(map);
+
+      // When user completes a shape, store and compute metrics
+      google.maps.event.addListener(drawingManager,'overlaycomplete', e=>{
+        e.overlay.type=e.type; drawings.push(e.overlay);
+        attachDrawingHandlers(e.overlay);
+        updateMeasurements();
+        persistAll();
+      });
+
+      setupUI();
+      loadPersisted();
+    }
+
+    // Custom dark map style
+    const darkStyle=[
+      {elementType:'geometry',stylers:[{color:'#0b1a0f'}]},
+      {elementType:'labels.text.fill',stylers:[{color:'#a3b7a6'}]},
+      {elementType:'labels.text.stroke',stylers:[{color:'#0b1a0f'}]},
+      {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#112417'}]},
+      {featureType:'poi',elementType:'labels.icon',stylers:[{visibility:'off'}]},
+      {featureType:'road',elementType:'geometry',stylers:[{color:'#193222'}]},
+      {featureType:'road',elementType:'labels.icon',stylers:[{visibility:'off'}]},
+      {featureType:'water',elementType:'geometry',stylers:[{color:'#0a2b1a'}]}
+    ];
+
+    // === UI LOGIC ===
+    function setupUI(){
+      // Draggable toolbar
+      const tb=document.getElementById('toolbar');
+      dragElement(tb, tb.querySelector('.drag-handle'));
+
+      // Tool buttons
+      document.querySelectorAll('.tool').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const tool=btn.dataset.tool;
+          if(activeTool===tool){activeTool=null;btn.classList.remove('active');return}
+          document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          activeTool=tool; deleteMode=false; document.getElementById('deleteMode').classList.remove('active');
+        });
+      });
+      document.getElementById('clearTool').onclick=()=>{activeTool=null;document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'))};
+      document.getElementById('deleteMode').onclick=(e)=>{deleteMode=!deleteMode;e.currentTarget.classList.toggle('active',deleteMode)};
+
+      // Map click -> place marker if a tool is active
+      map.addListener('click', (ev)=>{
+        if(!activeTool) return;
+        placeMarker(ev.latLng, activeTool);
+      });
+
+      // Locate button
+      document.getElementById('locateBtn').onclick=()=>{
+        if(!navigator.geolocation){toast('Geolocation not supported');return}
+        navigator.geolocation.getCurrentPosition(pos=>{
+          const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
+          map.panTo(p); map.setZoom(Math.max(map.getZoom(), 14));
+          // Optional pulse
+          const circ=new google.maps.Circle({map,center:p,strokeColor:'#6dbc5d',strokeOpacity:.7,strokeWeight:2,fillColor:'#6dbc5d',fillOpacity:.15,radius:pos.coords.accuracy||20});
+          setTimeout(()=>circ.setMap(null), 2000);
+          calcSunTimes(p);
+        },()=>toast('Unable to fetch location'));
+      };
+
+      // Bottom nav switching
+      document.querySelectorAll('.nav .tab').forEach(tab=>{
+        tab.addEventListener('click',()=>{
+          const id=tab.dataset.panel;
+          document.querySelectorAll('.nav .tab').forEach(t=>t.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+          document.getElementById('panel-'+id).classList.add('show');
+        })
+      })
+
+      // Layer toggles
+      document.getElementById('togglePublic').onchange=(e)=>{e.target.checked?addPublicDemo():removePublicDemo()};
+      document.getElementById('toggleWind').onchange=(e)=>{e.target.checked?showWind():hideWind()};
+      document.getElementById('toggleSun').onchange=(e)=>{e.target.checked?showSun():hideSun()};
+
+      // Measure panel
+      document.getElementById('measureToggle').onclick=()=>{
+        const m=drawingManager.getDrawingMode()?null:'polyline';
+        drawingManager.setDrawingMode(m);
+        document.getElementById('measureToggle').textContent=m? 'Stop Measuring':'Start Measuring';
+      }
+
+      // Saved export/import
+      document.getElementById('exportBtn').onclick=exportGeoJSON;
+      document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+      document.getElementById('importFile').addEventListener('change',importGeoJSON);
+
+      // Storage wipe
+      document.getElementById('wipe').onclick=()=>{localStorage.removeItem('bhh_state'); location.reload()};
+    }
+
+    function placeMarker(latlng,type){
+      const g = new google.maps.Marker({position:latlng,map,icon:svgMarker(type),draggable:true});
+      g.addListener('click',()=>{
+        if(deleteMode){g.setMap(null); removeMarker(g); persistAll(); return}
+        const iw=new google.maps.InfoWindow({content:infoHTML(type, latlng)});
+        iw.open({anchor:g, map});
+      });
+      g.addListener('dragend',persistAll);
+      markers.push({g,type});
+      persistAll();
+      toast(cap(type)+ ' added');
+      refreshSavedList();
+    }
+
+    function removeMarker(g){
+      const idx=markers.findIndex(m=>m.g===g); if(idx>-1) markers.splice(idx,1);
+      refreshSavedList();
+    }
+
+    function infoHTML(type, ll){
+      return `<div style="min-width:160px;color:#0b1a0f"><strong>${cap(type)}</strong><br><small>${ll.lat().toFixed(5)}, ${ll.lng().toFixed(5)}</small><br><button onclick="window.__delThis()" style="margin-top:6px">Delete</button></div>`
+    }
+
+    // SVG markers as data URIs
+    function svgMarker(type){
+      const color='#6dbc5d';
+      const paths={
+        stand:'M12 3 L5 19 H19 Z',
+        feeder:'M6 6 H18 V11 H6 Z M10 11 V19 M14 11 V19',
+        camera:'M8 9 H16 V15 H8 Z M10 7 H14',
+        scrape:'M6 16 C9 12,15 12,18 16',
+        rub:'M12 4 V20 M12 10 L8 14 M12 10 L16 14',
+        water:'M12 5 C9 9,7 12,7 14 A5 5 0 0 0 17 14 C17 12,15 9,12 5 Z'
+      };
+      const p=paths[type]||'M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z';
+      const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='42' viewBox='0 0 32 42'><g transform='translate(4,6)'><circle cx='12' cy='12' r='12' fill='${color}' fill-opacity='0.18' /><path d='${p}' fill='none' stroke='${color}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></g></svg>`;
+      return {url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(32,42),anchor:new google.maps.Point(16,36)}
+    }
+
+    // Attach click to remove drawings & update metrics
+    function attachDrawingHandlers(overlay){
+      google.maps.event.addListener(overlay,'click',()=>{
+        if(deleteMode){overlay.setMap(null); const i=drawings.indexOf(overlay); if(i>-1) drawings.splice(i,1); updateMeasurements(); persistAll();}
+      });
+      if(overlay.getPath){overlay.getPath().addListener('insert_at',()=>{updateMeasurements();persistAll()});overlay.getPath().addListener('set_at',()=>{updateMeasurements();persistAll()});}
+    }
+
+    // Measurements
+    function updateMeasurements(){
+      // distance: sum of polylines
+      let dist = drawings.filter(d=>d.type==='polyline').reduce((sum,d)=>{
+        const path=d.getPath().getArray();
+        for(let i=1;i<path.length;i++) sum += google.maps.geometry.spherical.computeDistanceBetween(path[i-1], path[i]);
+        return sum;
+      },0);
+      document.getElementById('distOut').textContent = formatMeters(dist);
+
+      // area: polygons
+      let area = drawings.filter(d=>d.type==='polygon').reduce((sum,d)=>{
+        return sum + Math.abs(google.maps.geometry.spherical.computeArea(d.getPath()));
+      },0);
+      document.getElementById('areaOut').textContent = formatMeters(area,true);
+    }
+
+    function formatMeters(v, area=false){
+      if(area){ if(v>1e6) return (v/1e6).toFixed(2)+' km²'; if(v>1e4) return (v/1e4).toFixed(1)+' ha'; return v.toFixed(0)+' m²'; }
+      if(v>1000) return (v/1000).toFixed(2)+' km'; return v.toFixed(0)+' m';
+    }
+
+    // Demo Public Lands layer (embedded GeoJSON polygon)
+    function addPublicDemo(){
+      const gj={"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Demo Public Land"},"geometry":{"type":"Polygon","coordinates":[[[-83.2,40.2],[-83.0,40.2],[-83.0,40.35],[-83.2,40.35],[-83.2,40.2]]]} }]};
+      publicLayer = new google.maps.Data({map});
+      publicLayer.addGeoJson(gj);
+      publicLayer.setStyle({fillColor:'#4caf50',fillOpacity:0.12,strokeColor:'#4caf50',strokeWeight:2});
+      toast('Public Lands on');
+    }
+    function removePublicDemo(){ if(publicLayer){publicLayer.setMap(null); publicLayer=null; toast('Public Lands off');}}
+
+    // Wind overlay (simple compass at map center)
+    function showWind(){
+      if(windOverlay) return; windOverlay=new CenteredOverlay('<div id="wind" style="padding:8px 10px;border-radius:12px;border:1px solid #264030;background:#132218;color:#bfe9b8">💨 Wind: <span id="windDir">N</span></div>');
+      windOverlay.setMap(map);
+      // Let user set direction with keyboard arrows as a simple control
+      window.addEventListener('keydown', windKey);
+    }
+    function hideWind(){ if(windOverlay){windOverlay.setMap(null); windOverlay=null; window.removeEventListener('keydown', windKey);} }
+    function windKey(e){ const dirs=['N','NE','E','SE','S','SW','W','NW']; let idx=dirs.indexOf(document.getElementById('windDir').textContent); if(e.key==='ArrowRight') idx=(idx+1)%8; if(e.key==='ArrowLeft') idx=(idx+7)%8; document.getElementById('windDir').textContent=dirs[idx]; }
+
+    // Sunrise/Sunset overlay using SunCalc
+    function showSun(){ if(!sunOverlay){ sunOverlay=new CenteredOverlay('<div id="sunBox" style="padding:8px 10px;border-radius:12px;border:1px solid #264030;background:#132218;color:#bfe9b8">☀️ Sunrise: <span id="sunrise">--:--</span> · 🌇 Sunset: <span id="sunset">--:--</span></div>'); sunOverlay.setMap(map);} calcSunTimes(map.getCenter().toJSON()); }
+    function hideSun(){ if(sunOverlay){sunOverlay.setMap(null); sunOverlay=null} }
+    function calcSunTimes({lat,lng}){
+      if(!sunOverlay) return; const t=SunCalc.getTimes(new Date(), lat, lng);
+      const f=(d)=>d? d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'--:--';
+      document.getElementById('sunrise').textContent=f(t.sunrise);
+      document.getElementById('sunset').textContent=f(t.sunset);
+    }
+
+    // CenteredOverlay helper
+    class CenteredOverlay extends google.maps.OverlayView{
+      constructor(html){ super(); this.div=null; this.html=html; }
+      onAdd(){ this.div=document.createElement('div'); this.div.style.position='absolute'; this.div.innerHTML=this.html; const panes=this.getPanes(); panes.overlayMouseTarget.appendChild(this.div); }
+      draw(){ const proj=this.getProjection(); const center=proj.fromLatLngToDivPixel(this.getMap().getCenter()); this.div.style.left=(center.x - this.div.offsetWidth/2)+'px'; this.div.style.top=(center.y - this.div.offsetHeight - 30)+'px'; }
+      onRemove(){ if(this.div) this.div.remove(); this.div=null; }
+    }
+
+    // Save/Load state to localStorage
+    function persistAll(){
+      const state={
+        center: map.getCenter().toJSON(), zoom: map.getZoom(),
+        markers: markers.map(m=>({type:m.type, pos:m.g.getPosition().toJSON()})),
+        drawings: drawings.map(d=> serializeOverlay(d) ),
+      };
+      localStorage.setItem('bhh_state', JSON.stringify(state));
+      refreshSavedList();
+    }
+
+    function loadPersisted(){
+      const raw=localStorage.getItem('bhh_state'); if(!raw){return}
+      try{
+        const s=JSON.parse(raw);
+        if(s.center) { map.setCenter(s.center); map.setZoom(s.zoom||12); calcSunTimes(s.center); }
+        (s.markers||[]).forEach(m=> placeMarker(new google.maps.LatLng(m.pos), m.type));
+        (s.drawings||[]).forEach(addSerialized);
+      }catch(e){console.warn('Failed to load state', e)}
+    }
+
+    function serializeOverlay(o){
+      if(o.type==='polygon' || o.type==='polyline'){
+        return {type:o.type, path:o.getPath().getArray().map(p=>p.toJSON())};
+      }else if(o.type==='rectangle'){
+        const b=o.getBounds(); return {type:'rectangle', bounds:{n:b.getNorthEast().lat(), e:b.getNorthEast().lng(), s:b.getSouthWest().lat(), w:b.getSouthWest().lng()}};
+      }
+      return null;
+    }
+
+    function addSerialized(s){
+      if(!s) return; let o=null;
+      if(s.type==='polygon'){
+        o=new google.maps.Polygon({map, paths:s.path, strokeColor:'#6dbc5d', fillColor:'#6dbc5d', fillOpacity:.15});
+      }else if(s.type==='polyline'){
+        o=new google.maps.Polyline({map, path:s.path, strokeColor:'#6dbc5d'});
+      }else if(s.type==='rectangle'){
+        const b=new google.maps.LatLngBounds(new google.maps.LatLng(s.bounds.s,s.bounds.w), new google.maps.LatLng(s.bounds.n,s.bounds.e));
+        o=new google.maps.Rectangle({map, bounds:b, strokeColor:'#6dbc5d', fillColor:'#6dbc5d', fillOpacity:.08});
+      }
+      if(o){ o.type=s.type; drawings.push(o); attachDrawingHandlers(o); }
+    }
+
+    // Saved list (simple)
+    function refreshSavedList(){
+      const box=document.getElementById('savedList');
+      if(!markers.length && !drawings.length){ box.textContent='No spots saved yet.'; return }
+      const items=[...markers.map((m,i)=>`<li>${cap(m.type)} · <span class=tag>${m.g.getPosition().lat().toFixed(4)}, ${m.g.getPosition().lng().toFixed(4)}</span></li>`), ...drawings.map((d,i)=>`<li>${cap(d.type)} ${i+1}</li>`)];
+      box.innerHTML = `<ul style="margin:6px 0 0 16px;line-height:1.6">${items.join('')}</ul>`;
+    }
+
+    function exportGeoJSON(){
+      const gj={type:'FeatureCollection', features:[
+        ...markers.map(m=>({type:'Feature', properties:{type:m.type}, geometry:{type:'Point', coordinates:[m.g.getPosition().lng(), m.g.getPosition().lat()]}})),
+        ...drawings.map(d=> drawingToFeature(d))
+      ]};
+      const blob=new Blob([JSON.stringify(gj,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download='bhh_spots.geojson'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    function importGeoJSON(e){
+      const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{
+        try{const gj=JSON.parse(r.result); applyGeoJSON(gj); toast('Imported') }catch(err){toast('Import failed')} finally{e.target.value=''}
+      }; r.readAsText(file);
+    }
+
+    function applyGeoJSON(gj){
+      // clear existing
+      markers.forEach(m=>m.g.setMap(null)); markers.length=0;
+      drawings.forEach(d=>d.setMap(null)); drawings.length=0;
+      // add from geojson
+      (gj.features||[]).forEach(f=>{
+        if(f.geometry.type==='Point'){
+          placeMarker(new google.maps.LatLng(f.geometry.coordinates[1], f.geometry.coordinates[0]), f.properties?.type || 'saved');
+        }else if(f.geometry.type==='LineString'){
+          const o=new google.maps.Polyline({map, path:f.geometry.coordinates.map(c=>({lat:c[1],lng:c[0]})), strokeColor:'#6dbc5d'}); o.type='polyline'; drawings.push(o); attachDrawingHandlers(o);
+        }else if(f.geometry.type==='Polygon'){
+          const o=new google.maps.Polygon({map, paths:f.geometry.coordinates[0].map(c=>({lat:c[1],lng:c[0]})), strokeColor:'#6dbc5d', fillColor:'#6dbc5d', fillOpacity:.15}); o.type='polygon'; drawings.push(o); attachDrawingHandlers(o);
+        }
+      });
+      updateMeasurements(); persistAll();
+    }
+
+    function drawingToFeature(d){
+      if(d.type==='polyline'){
+        const coords=d.getPath().getArray().map(p=>[p.lng(), p.lat()]);
+        return {type:'Feature', properties:{type:'polyline'}, geometry:{type:'LineString', coordinates:coords}};
+      }
+      if(d.type==='polygon'){
+        const coords=[d.getPath().getArray().map(p=>[p.lng(), p.lat()])];
+        return {type:'Feature', properties:{type:'polygon'}, geometry:{type:'Polygon', coordinates:coords}};
+      }
+      if(d.type==='rectangle'){
+        const b=d.getBounds(); const sw=b.getSouthWest(); const ne=b.getNorthEast();
+        const ring=[[sw.lng(),sw.lat()],[ne.lng(),sw.lat()],[ne.lng(),ne.lat()],[sw.lng(),ne.lat()],[sw.lng(),sw.lat()]];
+        return {type:'Feature', properties:{type:'rectangle'}, geometry:{type:'Polygon', coordinates:[ring]}};
+      }
+    }
+
+    // Utilities
+    function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+    function toast(msg){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1500)}
+
+    function dragElement(el, handle){
+      let x=0,y=0,dx=0,dy=0;
+      const down=(e)=>{e.preventDefault(); handle.style.cursor='grabbing'; x=(e.touches?e.touches[0].clientX:e.clientX); y=(e.touches?e.touches[0].clientY:e.clientY); document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',up)}
+      const move=(e)=>{e.preventDefault(); dx=(e.touches?e.touches[0].clientX:e.clientX)-x; dy=(e.touches?e.touches[0].clientY:e.clientY)-y; x+=dx; y+=dy; const rect=el.getBoundingClientRect(); el.style.left=(rect.left+dx)+'px'; el.style.top=(rect.top+dy)+'px'; el.style.bottom='auto'}
+      const up=()=>{handle.style.cursor='grab'; document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',move); document.removeEventListener('touchend',up)}
+      handle.addEventListener('mousedown',down); handle.addEventListener('touchstart',down,{passive:false});
+    }
+
+    // Expose temp delete action for InfoWindow button (scoped)
+    window.__delThis = function(){
+      // This is a no-op placeholder; the InfoWindow button is illustrative. Delete mode handles removal on click.
+    }
+
+    // Boot
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
