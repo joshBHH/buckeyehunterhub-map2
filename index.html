@@ -19,6 +19,14 @@
     html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
     #map{position:fixed;inset:0}
 
+ <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet.draw -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    
     /* Draggable floating toolbar */
     .toolbar{position:fixed;left:12px;bottom:110px;display:flex;gap:8px;flex-wrap:wrap;max-width:min(94vw,360px);padding:10px;background:linear-gradient(180deg,rgba(16,31,20,.95),rgba(16,31,20,.92));border:1px solid #203325;border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(6px);z-index:1000;touch-action:none}
     .toolbar header{width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
@@ -128,8 +136,41 @@
     <div id="toast" class="toast">Saved.</div>
   </div>
 
-  <!-- Google Maps JS API (replace YOUR_API_KEY) -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,drawing"></script>
+ // --- Map ---
+    const map = L.map('map').setView([40.4173, -82.9071], 6);
+
+    // --- MapTiler basemaps ---
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', {
+      attribution: '&copy; MapTiler & OpenStreetMap contributors'
+    }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', {
+      attribution: '&copy; MapTiler'
+    });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', {
+      attribution: '&copy; MapTiler & OpenStreetMap contributors'
+    });
+
+    // --- Draw layer ---
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    map.addControl(new L.Control.Draw({
+      position: 'topleft',
+      edit: { featureGroup: drawnItems },
+      draw: { circle: false }
+    }));
+
+    // --- Save to localStorage (drawings) ---
+    const STORAGE_DRAW = "bhh_drawings";
+    function saveDraw(){ localStorage.setItem(STORAGE_DRAW, JSON.stringify(drawnItems.toGeoJSON())); }
+    function restoreDraw(){
+      const raw = localStorage.getItem(STORAGE_DRAW);
+      if (raw) L.geoJSON(JSON.parse(raw), { onEachFeature:(_,l)=>drawnItems.addLayer(l) });
+    }
+    restoreDraw();
+    map.on(L.Draw.Event.CREATED, e => { drawnItems.addLayer(e.layer); saveDraw(); });
+    map.on(L.Draw.Event.EDITED, saveDraw);
+    map.on(L.Draw.Event.DELETED, saveDraw);
+  
   <!-- SunCalc for sunrise/sunset -->
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 
