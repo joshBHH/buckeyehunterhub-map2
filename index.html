@@ -132,9 +132,9 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
@@ -202,18 +202,36 @@
     const ohioPublic = L.geoJSON(null, {
       style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
       onEachFeature:(feat, layer)=>{
-        // Build a simple popup that lists key properties
-        const props = feat && feat.properties ? feat.properties : {};
-        const rows = Object.keys(props)
-          .filter(k=> !/^(OBJECTID|Shape|SHAPE|GLOBALID)$/i.test(k))
-          .slice(0, 12)
-          .map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(props[k])}</div>`)
-          .join('');
-        layer.bindPopup(rows || 'Public Hunting Area');
+        const p = feat && feat.properties ? feat.properties : {};
+        const preferred = ['NAME','AREA_NAME','UNIT_NAME','PARK_NAME','SITE_NAME','COUNTY','ACRES','AREA_ACRES','OWNER','AGENCY','STATUS','TYPE','ACCESS','SEASON'];
+        const headerKey = preferred.find(k=> k in p) || Object.keys(p)[0];
+        const name = headerKey ? String(p[headerKey]) : 'Public Hunting Area';
+        const keysOrdered = [...new Set([...preferred.filter(k=>k in p), ...Object.keys(p)])].slice(0,12);
+        const rows = keysOrdered.map(k=>`<div><span style=\"color:#a3b7a6\">${k}:</span> ${String(p[k])}</div>`).join('');
+        layer.bindPopup(`<b>${name}</b><div style=\"margin-top:6px\">${rows}</div>`);
         layer.on('mouseover', ()=> layer.setStyle({weight:3}));
         layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
       }
     });
+
+    async function loadOhioPublic(){
+      try{
+        const localResp = await fetch('ohio_public_hunting.geojson', {cache:'reload'});
+        if(localResp.ok){
+          const localJson = await localResp.json();
+          ohioPublic.addData(localJson);
+          console.info('Loaded local ohio_public_hunting.geojson');
+          return;
+        }
+      }catch(e){ console.info('Local ohio_public_hunting.geojson not found'); }
+
+      try{
+        const odnrResp = await loadOhioPublic();
+        const odnrJson = await odnrResp.json();
+        ohioPublic.addData(odnrJson);
+        console.info('Loaded ODNR fallback layer');
+      }catch(err){ console.warn('ODNR layer fetch failed', err); }
+    }
     fetch('https://gis2.ohiodnr.gov/ArcGIS/rest/services/OIT_Services/DNR_Fed_Lands_Nav_Base/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson')
       .then(r=>r.json())
       .then(j=> ohioPublic.addData(j))
