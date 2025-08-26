@@ -39,26 +39,29 @@
     .marker-menu.show{display:flex}
 
     /* Bottom toolbar */
-    .toolbar{position:fixed;right:12px;bottom:calc(12px + var(--safe-bottom));z-index:1050;background:linear-gradient(180deg,rgba(16,31,20,.98),rgba(16,31,20,.94));border:1px solid #203325;border-radius:14px;padding:8px 10px;box-shadow:var(--shadow);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .toolbar{position:fixed;right:12px;bottom:calc(56px + 12px + var(--safe-bottom));z-index:1050;background:linear-gradient(180deg,rgba(16,31,20,.98),rgba(16,31,20,.94));border:1px solid #203325;border-radius:14px;padding:8px 10px;box-shadow:var(--shadow);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .toolbar button,label.button{padding:8px 12px;border:1px solid #25432b;border-radius:10px;background:#14271a;color:var(--text);cursor:pointer}
     .toolbar input[type="file"]{display:none}
 
-    /* Info panels */
-    .panel{position:fixed;left:12px;top:12px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;min-width:230px;max-width:min(90vw,360px)}
-    .panel h3{margin:0 0 8px;font-size:16px}
-    .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #1d3323}
+    /* Info panel (smaller + draggable) */
+    .panel{position:fixed;left:12px;top:80px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);padding:8px 10px;min-width:180px;max-width:240px}
+    .panel h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:8px;cursor:move}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #1d3323}
     .row:last-child{border-bottom:0}
-    .tag{font-size:12px;color:var(--subtle)}
+    .tag{font-size:11px;color:var(--subtle)}
 
-    /* Wind/Sun badge near center */
-    .overlay-badge{position:fixed;left:50%;transform:translateX(-50%);bottom:210px;z-index:1000;background:#132218;border:1px solid #24412d;border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+    /* Wind badge */
+    .overlay-badge{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(56px + 140px);z-index:1000;background:#132218;border:1px solid #24412d;border-radius:12px;padding:6px 8px;box-shadow:var(--shadow);font-size:12px}
 
-    /* Mobile tweaks */
+    /* Bottom main menu */
+    .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325}
+    .main-menu button{flex:1;max-width:180px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer}
+
     @media (max-width:640px){
-      .panel{left:8px;top:8px;max-width:260px}
-      .toolbar{left:8px;right:8px;justify-content:center}
-      .fab-main{right:12px;bottom:120px}
-      .marker-menu{right:12px;bottom:186px}
+      .toolbar{left:8px;right:8px}
+      .panel{left:8px;top:76px}
+      .main-menu{gap:6px}
+      .main-menu button{font-size:13px;padding:8px}
     }
   </style>
 </head>
@@ -86,9 +89,9 @@
       <button id="btnDeleteMode" title="Toggle delete mode">🗑️ Delete: Off</button>
     </div>
 
-    <!-- Info panel: sunrise/sunset + measurements -->
-    <section class="panel" id="infoPanel">
-      <h3>Field Info</h3>
+    <!-- Field Info panel (hidden by default; draggable) -->
+    <section class="panel" id="infoPanel" style="display:none;">
+      <h3 id="infoHandle">📋 Field Info</h3>
       <div class="row"><span>Sunrise</span><strong id="pSunrise" class="tag">--:--</strong></div>
       <div class="row"><span>Sunset</span><strong id="pSunset" class="tag">--:--</strong></div>
       <div class="row"><span>Day Length</span><strong id="pDay" class="tag">--h --m</strong></div>
@@ -99,6 +102,13 @@
 
     <!-- Wind badge -->
     <div class="overlay-badge" id="windBadge">💨 Wind: <span id="windDir">N</span></div>
+
+    <!-- Bottom main menu -->
+    <nav class="main-menu" id="mainMenu">
+      <button id="toggleFieldInfo">Field Info</button>
+      <button id="toggleBasemap">Basemap</button>
+      <button id="menuLocate">Locate Me</button>
+    </nav>
   </div>
 
   <script>
@@ -106,23 +116,26 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basemaps = [basic, satellite, topo];
+    let basemapIndex = 0;
+
+    function cycleBasemap(){
+      basemapIndex = (basemapIndex + 1) % basemaps.length;
+      basemaps.forEach((l,i)=>{ if(i===basemapIndex) l.addTo(map); else map.removeLayer(l); });
+    }
 
     /*******************
      * DRAWING LAYERS  *
      *******************/
     const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({
-      position:'topleft',
-      edit:{ featureGroup: drawnItems },
-      draw:{ circle:false }
-    });
+    const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:false } });
     map.addControl(drawControl);
 
     // Persist drawings
-    const STORAGE_DRAW = 'bhh_drawings_v1';
+    const STORAGE_DRAW = 'bhh_drawings_v2';
     function saveDraw(){ localStorage.setItem(STORAGE_DRAW, JSON.stringify(drawnItems.toGeoJSON())); updateMeasurements(); }
     function restoreDraw(){ const raw = localStorage.getItem(STORAGE_DRAW); if(raw){ L.geoJSON(JSON.parse(raw), { onEachFeature:(_,layer)=> drawnItems.addLayer(layer) }); updateMeasurements(); } }
     restoreDraw();
@@ -135,7 +148,7 @@
      * MARKERS LAYER    *
      *******************/
     const markersLayer = L.featureGroup().addTo(map);
-    const STORAGE_MARK = 'bhh_markers_v1';
+    const STORAGE_MARK = 'bhh_markers_v2';
     const IS_MOBILE = matchMedia('(max-width:640px)').matches;
     const ICON_SZ = IS_MOBILE ? 28 : 32;
     const FONT_SZ = IS_MOBILE ? 16 : 18;
@@ -165,9 +178,7 @@
       const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type });
       m.bindPopup(`<b>${cfg.label}</b><br><button class="del">Delete</button>`);
       m.on('dragend', saveMarkers);
-      m.on('click', () => {
-        if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); }
-      });
+      m.on('click', () => { if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); } });
       m.on('popupopen', (e)=>{
         const btn = e.popup.getElement().querySelector('button.del');
         if(btn) btn.addEventListener('click', ()=> { markersLayer.removeLayer(m); saveMarkers(); });
@@ -176,13 +187,11 @@
       saveMarkers();
     }
 
-    // Persist markers
     function serializeMarkers(){ const list=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); list.push({type:m.options.type||'marker', lat, lng}); }); return list; }
     function deserializeMarkers(list){ markersLayer.clearLayers(); (list||[]).forEach(m=> addMarker([m.lat,m.lng], m.type)); }
-    function saveMarkers(){ localStorage.setItem(STORAGE_MARK, JSON.stringify(serializeMarkers())); refreshSavedMetrics(); }
-    (function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
+    function saveMarkers(){ localStorage.setItem(STORAGE_MARK, JSON.stringify(serializeMarkers())); }
+    ;(function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
 
-    // Click-to-place
     map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); });
 
     /*******************
@@ -208,7 +217,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url);
     };
-    btnClear.onclick = () => { drawnItems.clearLayers(); saveDraw(); markersLayer.clearLayers(); saveMarkers(); };
+    btnClear.onclick = () => { drawnItems.clearLayers(); saveDraw(); markersLayer.clearLayers(); saveMarkers(); updateMeasurements(); };
     btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `🗑️ Delete: ${deleteMode? 'On':'Off'}`; };
     fileInput.onchange = (ev) => {
       const f = ev.target.files[0]; if(!f) return; const r=new FileReader();
@@ -232,21 +241,20 @@
       const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0);
       document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`;
     }
-    updateSun(); map.on('moveend', updateSun);
-
-    // Simple wind direction controller via arrow keys
-    const dirs=['N','NE','E','SE','S','SW','W','NW'];
-    window.addEventListener('keydown', (e)=>{
-      const el = document.getElementById('windDir');
-      let i = dirs.indexOf(el.textContent);
-      if(e.key==='ArrowRight'){ i=(i+1+8)%8; el.textContent=dirs[i]; }
-      if(e.key==='ArrowLeft'){  i=(i-1+8)%8; el.textContent=dirs[i]; }
-    });
+    function updateWindKeys(){
+      const dirs=['N','NE','E','SE','S','SW','W','NW'];
+      window.addEventListener('keydown', (e)=>{
+        const el = document.getElementById('windDir');
+        let i = dirs.indexOf(el.textContent);
+        if(e.key==='ArrowRight'){ i=(i+1+8)%8; el.textContent=dirs[i]; }
+        if(e.key==='ArrowLeft'){  i=(i-1+8)%8; el.textContent=dirs[i]; }
+      });
+    }
+    updateSun(); map.on('moveend', updateSun); updateWindKeys();
 
     /*******************
      * MEASUREMENTS     *
      *******************/
-    function refreshSavedMetrics(){ /* markers change doesn't affect distance/area but keeps timing consistent */ }
     function updateMeasurements(){
       // Distance: sum of polylines
       let dist=0; drawnItems.eachLayer(l=>{
@@ -257,12 +265,8 @@
       });
       document.getElementById('pDist').textContent = dist>1000 ? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m';
 
-      // Area: polygons
-      let area=0; drawnItems.eachLayer(l=>{
-        if(l instanceof L.Polygon){ area += L.GeometryUtil ? L.GeometryUtil.geodesicArea(l.getLatLngs()[0]) : Math.abs(L.GeometryUtil ? 0 : 0); }
-      });
-      // If GeometryUtil not available, approximate using Leaflet's planar method
-      if(area===0){ drawnItems.eachLayer(l=>{ if(l instanceof L.Polygon){ const latlngs=l.getLatLngs()[0]; area += Math.abs(L.Polygon.prototype._getArea? L.Polygon.prototype._getArea.call(l):0); } }); }
+      // Area: polygons (approx; can switch to GeometryUtil if desired)
+      let area=0; drawnItems.eachLayer(l=>{ if(l instanceof L.Polygon){ const rings=l.getLatLngs()[0]||[]; for(let i=0;i<rings.length;i++){ const a=rings[i], b=rings[(i+1)%rings.length]; area += (a.lng*b.lat - b.lng*a.lat); } area=Math.abs(area/2)*12365; } });
       const areaEl=document.getElementById('pArea');
       if(area>1e6) areaEl.textContent=(area/1e6).toFixed(2)+' km²';
       else if(area>1e4) areaEl.textContent=(area/1e4).toFixed(1)+' ha';
@@ -273,13 +277,61 @@
     map.on(L.Draw.Event.DELETED, updateMeasurements);
 
     /*******************
-     * UI WIRING        *
+     * UI: FAB & MENU   *
      *******************/
     const fab = document.getElementById('fabMain');
     const menu = document.getElementById('markerMenu');
     fab.onclick = ()=> menu.classList.toggle('show');
     menu.querySelectorAll('button[data-type]').forEach(btn=> btn.addEventListener('click', ()=>{ setActiveType(btn.dataset.type); menu.classList.remove('show'); }));
 
+    /*******************
+     * BOTTOM MAIN MENU *
+     *******************/
+    const btnFieldInfo = document.getElementById('toggleFieldInfo');
+    const infoPanel = document.getElementById('infoPanel');
+    const btnBasemap = document.getElementById('toggleBasemap');
+    const btnLocate  = document.getElementById('menuLocate');
+
+    // Persist visibility/position
+    const STORAGE_INFO_POS = 'ui_info_pos';
+    const STORAGE_INFO_VIS = 'ui_info_visible';
+
+    function setInfoVisible(v){ infoPanel.style.display = v? 'block':'none'; localStorage.setItem(STORAGE_INFO_VIS, v? '1':'0'); if(v){ updateSun(); updateMeasurements(); } }
+    function getInfoVisible(){ return localStorage.getItem(STORAGE_INFO_VIS) === '1'; }
+
+    btnFieldInfo.onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
+    btnBasemap.onclick   = cycleBasemap;
+    btnLocate.onclick    = ()=>{
+      if(!navigator.geolocation){ alert('Geolocation not supported'); return; }
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const latlng=[pos.coords.latitude, pos.coords.longitude];
+        map.setView(latlng, 15);
+      }, err=> alert('Location error: '+err.message), { enableHighAccuracy:true, timeout:8000 });
+    };
+
+    // Initial visibility
+    setInfoVisible(getInfoVisible());
+
+    /*******************
+     * DRAGGABLE PANEL  *
+     *******************/
+    function makeDraggable(el, handle, storageKey){
+      let sx=0, sy=0, sl=0, st=0, dragging=false;
+      const start=(x,y)=>{ dragging=true; sx=x; sy=y; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',tmove,{passive:false}); document.addEventListener('touchend',up); };
+      const down=(e)=>{ const p=point(e); start(p.x,p.y); e.preventDefault(); };
+      const tdown=(e)=>{ const p=point(e); start(p.x,p.y); };
+      const move=(e)=>{ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); };
+      const tmove=(e)=>{ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); };
+      const up=()=>{ dragging=false; document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',tmove); document.removeEventListener('touchend',up); savePos(); };
+      function point(e){ if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; }
+      function apply(l,t){ const vw=innerWidth, vh=innerHeight; const w=el.offsetWidth, h=el.offsetHeight; l=Math.max(4,Math.min(vw-w-4,l)); t=Math.max(60,Math.min(vh-h-4,t)); el.style.left=l+'px'; el.style.top=t+'px'; }
+      function savePos(){ const r=el.getBoundingClientRect(); localStorage.setItem(storageKey, JSON.stringify({left:r.left, top:r.top})); }
+      // restore
+      try{ const s=JSON.parse(localStorage.getItem(storageKey)||'null'); if(s){ el.style.left=s.left+'px'; el.style.top=s.top+'px'; } }catch{}
+      handle.addEventListener('mousedown',down); handle.addEventListener('touchstart',tdown,{passive:false});
+    }
+
+    makeDraggable(infoPanel, document.getElementById('infoHandle'), STORAGE_INFO_POS);
   </script>
 </body>
 </html>
