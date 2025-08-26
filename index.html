@@ -50,12 +50,20 @@
     .row:last-child{border-bottom:0}
     .tag{font-size:11px;color:var(--subtle)}
 
-    /* Wind badge */
-    .overlay-badge{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(56px + 140px);z-index:1000;background:#132218;border:1px solid #24412d;border-radius:12px;padding:6px 8px;box-shadow:var(--shadow);font-size:12px}
-
     /* Bottom main menu */
     .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325}
-    .main-menu button{flex:1;max-width:180px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer}
+    .main-menu button{flex:1;max-width:160px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wind-btn{display:flex;align-items:center;gap:8px}
+    .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
+
+    /* Basemap sheet */
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1199;display:none}
+    .backdrop.show{display:block}
+    .sheet{position:fixed;left:0;right:0;bottom:0;z-index:1200;background:var(--panel);border-top:1px solid #203325;border-radius:16px 16px 0 0;box-shadow:var(--shadow);transform:translateY(110%);transition:transform .25s ease}
+    .sheet.show{transform:translateY(0)}
+    .sheet .grab{width:36px;height:4px;border-radius:999px;background:#2b4231;margin:8px auto}
+    .sheet .option{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid #1d3323}
+    .sheet h4{margin:6px 16px 8px;font-size:14px;color:var(--subtle)}
 
     @media (max-width:640px){
       .toolbar{left:8px;right:8px}
@@ -100,15 +108,23 @@
       <p class="tag">Tap ＋ to select a marker type, then tap the map to place. Toggle 🗑️ to remove with a tap.</p>
     </section>
 
-    <!-- Wind badge -->
-    <div class="overlay-badge" id="windBadge">💨 Wind: <span id="windDir">N</span></div>
-
     <!-- Bottom main menu -->
     <nav class="main-menu" id="mainMenu">
       <button id="toggleFieldInfo">Field Info</button>
+      <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
       <button id="toggleBasemap">Basemap</button>
       <button id="menuLocate">Locate Me</button>
     </nav>
+
+    <!-- Basemap options sheet -->
+    <div class="backdrop" id="sheetBackdrop"></div>
+    <div class="sheet" id="basemapSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Basemap</h4>
+      <div class="option"><span>Basic</span><input type="radio" name="basemap" value="basic"></div>
+      <div class="option"><span>Satellite</span><input type="radio" name="basemap" value="satellite"></div>
+      <div class="option"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
+    </div>
   </div>
 
   <script>
@@ -116,12 +132,14 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
-    const basemaps = [basic, satellite, topo];
-    let basemapIndex = 0;
-    function cycleBasemap(){ basemapIndex = (basemapIndex + 1) % basemaps.length; basemaps.forEach((l,i)=>{ if(i===basemapIndex) l.addTo(map); else map.removeLayer(l); }); }
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+
+    const baseByKey = { basic, satellite, topo };
+    const STORAGE_BASE = 'ui_basemap_key';
+    function setBasemap(key){ Object.values(baseByKey).forEach(l=> map.removeLayer(l)); baseByKey[key].addTo(map); localStorage.setItem(STORAGE_BASE, key); }
+    (function restoreBasemap(){ const k = localStorage.getItem(STORAGE_BASE); if(k && baseByKey[k]) setBasemap(k); })();
 
     /*******************
      * DRAWING LAYERS  *
@@ -181,7 +199,21 @@
     /*******************
      * OHIO PUBLIC HUNTING (ODNR) *
      *******************/
-    const ohioPublic = L.geoJSON(null, { style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 } });
+    const ohioPublic = L.geoJSON(null, {
+      style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
+      onEachFeature:(feat, layer)=>{
+        // Build a simple popup that lists key properties
+        const props = feat && feat.properties ? feat.properties : {};
+        const rows = Object.keys(props)
+          .filter(k=> !/^(OBJECTID|Shape|SHAPE|GLOBALID)$/i.test(k))
+          .slice(0, 12)
+          .map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(props[k])}</div>`)
+          .join('');
+        layer.bindPopup(rows || 'Public Hunting Area');
+        layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+        layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
+      }
+    });
     fetch('https://gis2.ohiodnr.gov/ArcGIS/rest/services/OIT_Services/DNR_Fed_Lands_Nav_Base/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson')
       .then(r=>r.json())
       .then(j=> ohioPublic.addData(j))
@@ -190,7 +222,7 @@
     /*******************
      * LAYERS CONTROL   *
      *******************/
-    const layersCtl = L.control.layers(
+    L.control.layers(
       { 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
       { 'Ohio Public Hunting (ODNR)': ohioPublic, 'My Drawings':drawnItems, 'Hunt Markers':markersLayer },
       { position:'bottomleft' }
@@ -222,7 +254,7 @@
     };
 
     /*******************
-     * SUN / WIND INFO  *
+     * SUN INFO         *
      *******************/
     function updateSun(){
       const c = map.getCenter();
@@ -234,16 +266,52 @@
       const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0);
       document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`;
     }
-    function updateWindKeys(){
-      const dirs=['N','NE','E','SE','S','SW','W','NW'];
-      window.addEventListener('keydown', (e)=>{
-        const el = document.getElementById('windDir');
-        let i = dirs.indexOf(el.textContent);
-        if(e.key==='ArrowRight'){ i=(i+1+8)%8; el.textContent=dirs[i]; }
-        if(e.key==='ArrowLeft'){  i=(i-1+8)%8; el.textContent=dirs[i]; }
-      });
+    updateSun(); map.on('moveend', updateSun);
+
+    /*******************
+     * WIND (live by location) *
+     *******************/
+    const btnWind = document.getElementById('menuWind');
+    const windText = document.getElementById('windText');
+    const windArrow = document.getElementById('windArrow');
+
+    function degToCardinal(d){
+      const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+      return dirs[Math.round(d/45)%8];
     }
-    updateSun(); map.on('moveend', updateSun); updateWindKeys();
+    function updateWindUI(fromDeg, speed){
+      // Show direction the wind is blowing TO (arrow direction) for hunter scent
+      const toDeg = (fromDeg + 180) % 360;
+      const from = degToCardinal(fromDeg);
+      const to = degToCardinal(toDeg);
+      windArrow.style.transform = `rotate(${toDeg}deg)`; // arrow points downwards baseline
+      windText.textContent = `Wind: ${from} → ${to}  ${Math.round(speed)} mph`;
+    }
+
+    async function fetchWindAt(lat, lng){
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`;
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('wind fetch failed');
+      const j = await r.json();
+      const cur = j.current || j.current_weather || {};
+      const speed = cur.wind_speed_10m ?? cur.windspeed ?? 0;
+      const dir = cur.wind_direction_10m ?? cur.winddirection ?? 0;
+      updateWindUI(dir, speed);
+    }
+
+    async function refreshWind(){
+      try{
+        if(!navigator.geolocation) throw new Error('no geolocation');
+        navigator.geolocation.getCurrentPosition(async pos=>{
+          const {latitude, longitude} = pos.coords;
+          try{ await fetchWindAt(latitude, longitude); } catch(e){ console.warn(e); windText.textContent='Wind: n/a'; }
+        }, err=>{ console.warn(err); windText.textContent='Wind: n/a'; }, {enableHighAccuracy:true, timeout:8000});
+      }catch(e){ windText.textContent='Wind: n/a'; }
+    }
+
+    btnWind.onclick = refreshWind; // tap to refresh
+    refreshWind();
+    setInterval(refreshWind, 15*60*1000); // refresh every 15 min
 
     /*******************
      * MEASUREMENTS     *
@@ -290,14 +358,22 @@
     function getInfoVisible(){ return localStorage.getItem(STORAGE_INFO_VIS) === '1'; }
 
     btnFieldInfo.onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
-    btnBasemap.onclick   = cycleBasemap;
-    btnLocate.onclick    = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const latlng=[pos.coords.latitude, pos.coords.longitude]; map.setView(latlng, 15); }, err=> alert('Location error: '+err.message), { enableHighAccuracy:true, timeout:8000 }); };
 
-    setInfoVisible(getInfoVisible());
+    // Basemap sheet
+    const sheet = document.getElementById('basemapSheet');
+    const sheetBg = document.getElementById('sheetBackdrop');
+    const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
+    function openSheet(){ sheet.classList.add('show'); sheetBg.classList.add('show'); }
+    function closeSheet(){ sheet.classList.remove('show'); sheetBg.classList.remove('show'); }
+    btnBasemap.onclick = openSheet; sheetBg.onclick = closeSheet;
+    // init radio selection
+    (function syncRadio(){ const k = localStorage.getItem(STORAGE_BASE) || 'basic'; const r = radios.find(r=>r.value===k); if(r) r.checked = true; })();
+    radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); closeSheet(); }));
 
-    /*******************
-     * DRAGGABLE PANEL  *
-     *******************/
+    // Locate
+    btnLocate.onclick = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const latlng=[pos.coords.latitude, pos.coords.longitude]; map.setView(latlng, 15); }, err=> alert('Location error: '+err.message), { enableHighAccuracy:true, timeout:8000 }); };
+
+    // Draggable Field Info
     function makeDraggable(el, handle, storageKey){
       let sx=0, sy=0, sl=0, st=0, dragging=false;
       const start=(x,y)=>{ dragging=true; sx=x; sy=y; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',tmove,{passive:false}); document.addEventListener('touchend',up); };
@@ -312,7 +388,6 @@
       try{ const s=JSON.parse(localStorage.getItem(storageKey)||'null'); if(s){ el.style.left=s.left+'px'; el.style.top=s.top+'px'; } }catch{}
       handle.addEventListener('mousedown',down); handle.addEventListener('touchstart',tdown,{passive:false});
     }
-
     makeDraggable(infoPanel, document.getElementById('infoHandle'), STORAGE_INFO_POS);
   </script>
 </body>
