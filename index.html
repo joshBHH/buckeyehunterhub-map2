@@ -121,6 +121,7 @@
       <div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
       <h4 style="margin-top:10px">Overlays</h4>
       <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
+      <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
       <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
       <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
@@ -628,6 +629,29 @@
     loadOhioPublic();
 
     /*******************
+     * OHIO COUNTIES (outline + tooltip)
+     *******************/
+    const ohioCounties = L.geoJSON(null, {
+      style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
+      onEachFeature: (feat, layer) => {
+        const name = (feat.properties && (feat.properties.County_Name || feat.properties.COUNTY_NAME)) || 'County';
+        layer.bindTooltip(String(name), { sticky:true, direction:'center', className:'' });
+        layer.on('mouseover', ()=> layer.setStyle({ weight:2 }));
+        layer.on('mouseout',  ()=> layer.setStyle({ weight:1 }));
+      }
+    });
+
+    async function loadOhioCounties(){
+      try{
+        const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson';
+        const r = await fetch(url);
+        const j = await r.json();
+        ohioCounties.addData(j);
+      }catch(e){ console.warn('Counties layer fetch failed', e); }
+    }
+    loadOhioCounties();
+
+    /*******************
      * RADAR LAYERS     *
      *******************/
     const radarRain = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.6, attribution: 'RainViewer' });
@@ -638,7 +662,7 @@
     function setRadarOpacity(val){ const v=parseFloat(val); radarRain.setOpacity(v); radarNoaa.setOpacity(v); localStorage.setItem('radar_opacity', v.toString()); }
 
     // Add to layers control as toggles too
-    const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
+    const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
     L.control.layers({ 'Basic':basic, 'Satellite':satellite, 'Topographic':topo }, overlaysForControl, { position:'bottomleft' }).addTo(map);
 
     /*******************
@@ -672,19 +696,21 @@
     });
 
     // Basemap sheet wiring
-    const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
+    const radios = Array.from(document.querySelectorAll('input[name="basemap]")).length ? Array.from(document.querySelectorAll('input[name="basemap]")) : Array.from(document.querySelectorAll('input[name="basemap"]'));
     function syncBaseRadio(){ const k = localStorage.getItem(STORAGE_BASE) || 'basic'; const r = radios.find(r=>r.value===k); if(r) r.checked = true; }
     btnBasemap.onclick = ()=>{ openSheet('basemap'); };
     radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); }));
 
     // Overlay toggles in the basemap sheet
     const ovlOhio = document.getElementById('ovlOhio');
+    const ovlCounties = document.getElementById('ovlCounties');
     const ovlDraw = document.getElementById('ovlDraw');
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
+    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
+    ovlCounties.onchange = ()=> ovlCounties.checked ? ohioCounties.addTo(map) : map.removeLayer(ohioCounties);
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
@@ -745,7 +771,7 @@
      *******************/
     L.control.layers(
       { 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
-      { 'Ohio Public Hunting': ohioPublic, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer },
+      { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer },
       { position:'bottomleft' }
     ).addTo(map);
 
