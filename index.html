@@ -32,12 +32,6 @@
     #map{position:fixed;inset:0}
     #map.placing{cursor: crosshair}
 
-    /* Marker Menu (FAB + popup) */
-    .fab-main{position:fixed;right:16px;bottom:120px;width:56px;height:56px;border-radius:50%;border:none;background:var(--accent);color:#0b1a0f;font-size:32px;display:flex;align-items:center;justify-content:center;z-index:1100;box-shadow:var(--shadow)}
-    .marker-menu{position:fixed;right:16px;bottom:186px;background:linear-gradient(180deg,rgba(16,31,20,.98),rgba(16,31,20,.94));border:1px solid #203325;border-radius:16px;box-shadow:var(--shadow);padding:8px;display:none;flex-direction:column;gap:8px;z-index:1100;backdrop-filter:blur(6px)}
-    .marker-menu button{padding:10px 12px;border:1px solid #25432b;border-radius:12px;background:#132218;color:var(--text);text-align:left}
-    .marker-menu.show{display:flex}
-
     /* Info panel (smaller + draggable) */
     .panel{position:fixed;left:12px;top:80px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);padding:8px 10px;min-width:180px;max-width:240px}
     .panel h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:8px;cursor:move}
@@ -48,7 +42,8 @@
     /* Bottom main menu */
     .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;flex-wrap:wrap}
     .main-menu button{flex:1;max-width:140px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .wind-btn{display:flex;align-items:center;gap:8px}
+    .wind-btn{display:flex;align-items:center;gap:8px;max-width:220px}
+    #windText{font-size:12px}
     .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
 
     /* Sheets (backdrop + panel) */
@@ -61,38 +56,32 @@
     .sheet h4{margin:6px 16px 8px;font-size:14px;color:var(--subtle)}
     .sheet .content{padding:4px 16px 14px}
     .sheet .row{border:0}
-    .sheet input[type="text"], .sheet input[type="number"], .sheet input[type="search"]{width:100%;padding:8px 10px;border-radius:10px;border:1px solid #25432b;background:#14271a;color:var(--text)}
+    .sheet input[type="text"], .sheet input[type="number"], .sheet input[type="search"], .sheet select{width:100%;padding:8px 10px;border-radius:10px;border:1px solid #25432b;background:#14271a;color:var(--text)}
     .btn{padding:8px 12px;border:1px solid #25432b;border-radius:10px;background:#14271a;color:var(--text);cursor:pointer}
     .btn.danger{border-color:#5a2222;background:#331616}
 
     /* Waypoints list */
     .wp-list{max-height:38vh;overflow:auto;margin-top:6px}
-    .wp-item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
-    .wp-emoji{font-size:18px}
-    .wp-name{min-width:0}
-    .wp-actions button{margin-left:8px}
+    .item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
+    .emoji{font-size:18px}
+    .name{min-width:0}
+    .actions button{margin-left:8px}
+
+    /* Segment distance labels */
+    .seglabel{background:rgba(16,31,20,.92);border:1px solid #203325;border-radius:10px;padding:2px 6px;font-size:11px;color:var(--text);box-shadow:var(--shadow)}
 
     @media (max-width:640px){
       .panel{left:8px;top:76px}
       .main-menu{gap:6px}
       .main-menu button{font-size:13px;padding:8px;max-width:120px}
+      .wind-btn{max-width:200px}
+      #windText{font-size:11px}
     }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="map"></div>
-
-    <!-- FAB + Menu for markers -->
-    <button id="fabMain" class="fab-main" title="Add marker">＋</button>
-    <div id="markerMenu" class="marker-menu">
-      <button data-type="stand">🎯 Tree Stand</button>
-      <button data-type="feeder">🍽️ Feeder</button>
-      <button data-type="camera">📷 Trail Camera</button>
-      <button data-type="scrape">🦌 Scrape</button>
-      <button data-type="rub">🪵 Rub</button>
-      <button data-type="water">💧 Water Source</button>
-    </div>
 
     <!-- Field Info panel (hidden by default; draggable) -->
     <section class="panel" id="infoPanel" style="display:none;">
@@ -137,10 +126,10 @@
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
     </div>
 
-    <!-- Waypoints manager sheet -->
+    <!-- Waypoints + Shapes manager sheet -->
     <div class="sheet" id="waypointsSheet" aria-hidden="true">
       <div class="grab"></div>
-      <h4>Waypoints</h4>
+      <h4>Waypoints & Shapes</h4>
       <div class="content">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
           <select id="wpType">
@@ -203,9 +192,9 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
@@ -216,17 +205,111 @@
      * DRAWING LAYERS  *
      *******************/
     const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:false } });
+    const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:true } });
     map.addControl(drawControl);
 
-    const STORAGE_DRAW = 'bhh_drawings_v3';
-    function saveDraw(){ localStorage.setItem(STORAGE_DRAW, JSON.stringify(drawnItems.toGeoJSON())); }
-    function restoreDraw(){ const raw = localStorage.getItem(STORAGE_DRAW); if(raw){ L.geoJSON(JSON.parse(raw), { onEachFeature:(_,layer)=> drawnItems.addLayer(layer) }); } }
+    const STORAGE_DRAW = 'bhh_drawings_v4';
+
+    function featureTypeFromLayer(l){
+      if(l instanceof L.Circle) return 'circle';
+      if(l instanceof L.Rectangle) return 'rectangle';
+      if(l instanceof L.Polygon && !(l instanceof L.Rectangle)) return 'polygon';
+      if(l instanceof L.Polyline && !(l instanceof L.Polygon)) return 'polyline';
+      return 'shape';
+    }
+
+    function defaultShapeName(type){
+      const base = {polyline:'Line', polygon:'Area', rectangle:'Plot', circle:'Circle', shape:'Shape'}[type] || 'Shape';
+      let n=1; drawnItems.eachLayer(l=>{ if(featureTypeFromLayer(l)===type) n++; });
+      return `${base} ${n}`;
+    }
+
+    function saveDraw(){
+      const geojson = { type:'FeatureCollection', features:[] };
+      const circles = [];
+      drawnItems.eachLayer(l=>{
+        const type = featureTypeFromLayer(l);
+        if(type==='circle'){
+          const c = l.getLatLng();
+          circles.push({ lat:c.lat, lng:c.lng, radius:l.getRadius(), properties:{ name:l._bhhName || defaultShapeName('circle'), shapeType:'circle' } });
+        } else {
+          const f = l.toGeoJSON();
+          f.properties = Object.assign({}, f.properties||{}, { name: l._bhhName || defaultShapeName(type), shapeType:type });
+          geojson.features.push(f);
+        }
+      });
+      const bundle = { geojson, circles };
+      localStorage.setItem(STORAGE_DRAW, JSON.stringify(bundle));
+    }
+
+    function restoreDraw(){
+      const raw = localStorage.getItem(STORAGE_DRAW);
+      if(!raw){ return; }
+      try{
+        const data = JSON.parse(raw);
+        if(data && data.geojson){
+          L.geoJSON(data.geojson, { onEachFeature:(feat,layer)=>{
+            layer._bhhName = (feat.properties && feat.properties.name) || defaultShapeName(featureTypeFromLayer(layer));
+            drawnItems.addLayer(layer);
+            if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) labelPolylineSegments(layer);
+          }});
+          (data.circles||[]).forEach(c=>{
+            const layer = L.circle([c.lat,c.lng], { radius:c.radius });
+            layer._bhhName = (c.properties && c.properties.name) || defaultShapeName('circle');
+            drawnItems.addLayer(layer);
+          });
+        } else if(data.type==='FeatureCollection'){ // legacy
+          L.geoJSON(data, { onEachFeature:(_,layer)=>{ layer._bhhName = defaultShapeName(featureTypeFromLayer(layer)); drawnItems.addLayer(layer); if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) labelPolylineSegments(layer); } });
+        }
+      }catch(e){ console.warn('restore drawings failed', e); }
+    }
+
     restoreDraw();
 
-    map.on(L.Draw.Event.CREATED, e=>{ drawnItems.addLayer(e.layer); saveDraw(); });
-    map.on(L.Draw.Event.EDITED, saveDraw);
-    map.on(L.Draw.Event.DELETED, saveDraw);
+    map.on(L.Draw.Event.CREATED, e=>{
+      const layer = e.layer;
+      const type = e.layerType || featureTypeFromLayer(layer);
+      layer._bhhName = defaultShapeName(type);
+      drawnItems.addLayer(layer);
+      if(type==='polyline') labelPolylineSegments(layer);
+      saveDraw();
+      refreshWaypointsUI();
+    });
+    map.on(L.Draw.Event.EDITED, e=>{ e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); } }); saveDraw(); refreshWaypointsUI(); });
+    map.on(L.Draw.Event.DELETED, e=>{ e.layers.eachLayer(l=> removeSegLabels(l)); saveDraw(); refreshWaypointsUI(); });
+
+    /*******************
+     * SEGMENT LABELS FOR POLYLINES
+     *******************/
+    const segmentLabelsGroup = L.layerGroup().addTo(map);
+
+    function fmtFeetMiles(m){
+      const ft = m * 3.28084;
+      if(m >= 1609.344) return (m/1609.344).toFixed(2) + ' mi';
+      return Math.round(ft) + ' ft';
+    }
+
+    function removeSegLabels(layer){
+      if(layer._segLabels){ layer._segLabels.forEach(lbl=> segmentLabelsGroup.removeLayer(lbl)); layer._segLabels = null; }
+    }
+
+    function labelPolylineSegments(layer){
+      removeSegLabels(layer);
+      const latlngs = layer.getLatLngs();
+      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs; // simple polyline
+      const labels=[];
+      for(let i=1;i<pts.length;i++){
+        const a = pts[i-1], b = pts[i];
+        const d = map.distance(a, b);
+        const mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
+        const marker = L.marker(mid, { interactive:false, icon: L.divIcon({ className:'', html:`<div class="seglabel">${fmtFeetMiles(d)}</div>` }) });
+        marker.addTo(segmentLabelsGroup);
+        labels.push(marker);
+      }
+      layer._segLabels = labels;
+    }
+
+    function relabelPolyline(layer){ labelPolylineSegments(layer); }
 
     /*******************
      * MARKERS (WAYPOINTS)
@@ -265,7 +348,7 @@
       const markerId = id || uid();
       const markerName = name || defaultName(type);
       const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type, id: markerId, name: markerName });
-      const setPopup = () => m.bindPopup(`<b>${m.options.name}</b><div class="tag">${cfg.label}</div><br><button class="del">Delete</button>`, {autoPan:false});
+      const setPopup = () => m.bindPopup(`<b>${m.options.name}</b><div class=\"tag\">${cfg.label}</div><br><button class=\"del\">Delete</button>`, {autoPan:false});
       setPopup();
       m.on('dragend', saveMarkers);
       m.on('click', () => { if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); refreshWaypointsUI(); } });
@@ -283,23 +366,83 @@
     map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); refreshWaypointsUI(); });
 
     /*******************
-     * WAYPOINTS UI     *
+     * WAYPOINTS & SHAPES LIST UI
      *******************/
-    const wpSheet = document.getElementById('waypointsSheet');
     const wpList = document.getElementById('wpList');
     const wpSearch = document.getElementById('wpSearch');
     const wpType = document.getElementById('wpType');
     const wpName = document.getElementById('wpName');
+
     document.getElementById('wpAddCenter').onclick = ()=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker(map.getCenter(), t, n); refreshWaypointsUI(); wpName.value=''; };
     document.getElementById('wpAddGPS').onclick = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker([pos.coords.latitude, pos.coords.longitude], t, n); refreshWaypointsUI(); wpName.value=''; }, err=> alert('Location error: '+err.message), {enableHighAccuracy:true, timeout:8000}); };
 
-    function getWaypoints(){ const arr=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); arr.push({ id:m.options.id, name:m.options.name, type:m.options.type, lat, lng, layer:m }); }); return arr; }
-    function typeEmoji(t){ return markerTypes[t]?.emoji || '📍'; }
-    function refreshWaypointsUI(){ const q = wpSearch.value.toLowerCase(); const items = getWaypoints().filter(w=> !q || w.name.toLowerCase().includes(q) || (markerTypes[w.type]?.label.toLowerCase().includes(q))); wpList.innerHTML = items.map(w=>`<div class="wp-item" data-id="${w.id}"><div class="wp-emoji">${typeEmoji(w.type)}</div><div class="wp-name"><input type="text" value="${w.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"/></div><div class="wp-actions"><button class="btn fly">Fly</button></div><div class="wp-actions"><button class="btn danger del">Delete</button></div></div>`).join('') || '<p class="tag" style="margin-top:8px">No waypoints yet.</p>'; }
+    function gatherShapes(){
+      const arr=[];
+      drawnItems.eachLayer(l=>{
+        const type = featureTypeFromLayer(l);
+        let center = l.getBounds ? l.getBounds().getCenter() : (l.getLatLng ? l.getLatLng() : map.getCenter());
+        arr.push({ kind:'shape', type, name: l._bhhName || defaultShapeName(type), layer:l, center });
+      });
+      return arr;
+    }
 
-    wpList.addEventListener('click', (e)=>{ const item = e.target.closest('.wp-item'); if(!item) return; const id=item.dataset.id; const wp = getWaypoints().find(w=> w.id===id); if(!wp) return; if(e.target.classList.contains('fly')){ map.setView([wp.lat, wp.lng], Math.max(map.getZoom(), 16)); wp.layer.openPopup(); } if(e.target.classList.contains('del')){ markersLayer.removeLayer(wp.layer); saveMarkers(); refreshWaypointsUI(); } });
-    wpList.addEventListener('input', (e)=>{ const item = e.target.closest('.wp-item'); if(!item) return; const id=item.dataset.id; const wp = getWaypoints().find(w=> w.id===id); if(!wp) return; if(e.target.type==='text'){ wp.layer.options.name = e.target.value; const cfg = markerTypes[wp.layer.options.type] || {label:'Marker'}; wp.layer.bindPopup(`<b>${wp.layer.options.name}</b><div class="tag">${cfg.label}</div><br><button class="del">Delete</button>`); saveMarkers(); } });
-    wpSearch.addEventListener('input', refreshWaypointsUI);
+    function getWaypoints(){
+      const pts=[];
+      markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); pts.push({ kind:'wp', id:m.options.id, name:m.options.name, type:m.options.type, lat, lng, layer:m }); });
+      return pts;
+    }
+
+    function emojiFor(item){
+      if(item.kind==='shape'){
+        return ({polyline:'📏', polygon:'⬠', rectangle:'▭', circle:'◯'})[item.type] || '⬣';
+      }
+      return markerTypes[item.type]?.emoji || '📍';
+    }
+
+    function labelFor(item){
+      if(item.kind==='shape'){
+        return ({polyline:'Line', polygon:'Area', rectangle:'Plot', circle:'Circle'})[item.type] || 'Shape';
+      }
+      return markerTypes[item.type]?.label || 'Marker';
+    }
+
+    function allItems(){ return [...getWaypoints(), ...gatherShapes()]; }
+
+    function refreshWaypointsUI(){
+      const q = (wpSearch.value||'').toLowerCase();
+      const items = allItems().filter(w=> !q || (w.name && w.name.toLowerCase().includes(q)) || (labelFor(w).toLowerCase().includes(q)));
+      wpList.innerHTML = items.map((w,i)=>`
+        <div class="item" data-kind="${w.kind}" data-idx="${i}">
+          <div class="emoji">${emojiFor(w)}</div>
+          <div class="name"><input type="text" value="${(w.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"/></div>
+          <div class="actions"><button class="btn fly">Fly</button></div>
+          <div class="actions"><button class="btn danger del">Delete</button></div>
+        </div>`).join('') || '<p class="tag" style="margin-top:8px">No items yet.</p>';
+    }
+
+    wpList.addEventListener('click', (e)=>{
+      const item = e.target.closest('.item'); if(!item) return;
+      const idx = parseInt(item.dataset.idx,10);
+      const items = allItems(); const obj = items[idx]; if(!obj) return;
+      if(e.target.classList.contains('fly')){
+        if(obj.kind==='wp'){ map.setView([obj.lat, obj.lng], Math.max(map.getZoom(), 16)); obj.layer.openPopup(); }
+        else { if(obj.layer.getBounds){ map.fitBounds(obj.layer.getBounds(), { maxZoom: 18 }); } else if(obj.center){ map.setView(obj.center, 17); } }
+      }
+      if(e.target.classList.contains('del')){
+        if(obj.kind==='wp'){ markersLayer.removeLayer(obj.layer); saveMarkers(); }
+        else { removeSegLabels(obj.layer); drawnItems.removeLayer(obj.layer); saveDraw(); }
+        refreshWaypointsUI();
+      }
+    });
+
+    wpList.addEventListener('input', (e)=>{
+      const item = e.target.closest('.item'); if(!item) return; const idx = parseInt(item.dataset.idx,10); const items = allItems(); const obj = items[idx]; if(!obj) return;
+      if(e.target.type==='text'){
+        const val = e.target.value;
+        if(obj.kind==='wp'){ obj.layer.options.name = val; const cfg = markerTypes[obj.layer.options.type] || {label:'Marker'}; obj.layer.bindPopup(`<b>${obj.layer.options.name}</b><div class=\"tag\">${cfg.label}</div><br><button class=\"del\">Delete</button>`); saveMarkers(); }
+        else { obj.layer._bhhName = val; saveDraw(); }
+      }
+    });
 
     /*******************
      * TRACK RECORDER   *
@@ -315,7 +458,7 @@
     function appendPoint(lat,lng,t){ const pt = {lat,lng,t: t||Date.now()}; if(lastPoint){ const d = map.distance([lastPoint.lat,lastPoint.lng],[lat,lng]); if(d < 3) return; } trackPoints.push(pt); lastPoint = pt; trackLayer.addLatLng([lat,lng]); saveTrack(); }
 
     function trackDistance(){ let d=0; for(let i=1;i<trackPoints.length;i++){ d += map.distance([trackPoints[i-1].lat,trackPoints[i-1].lng],[trackPoints[i].lat,trackPoints[i].lng]); } return d; }
-    function updateTrackStats(){ const pts = trackPoints.length; const dist = trackDistance(); document.getElementById('trkPts').textContent = pts; const distText = dist>1000 ? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m'; document.getElementById('trkDist').textContent = distText; const durMs = startTime ? (Date.now()-startTime) : (trackPoints.length? (trackPoints[trackPoints.length-1].t - trackPoints[0].t):0); const mm = Math.floor(durMs/60000), ss=(Math.floor(durMs/1000)%60).toString().padStart(2,'0'); document.getElementById('trkDur').textContent = `${mm}:${ss}`; document.getElementById('pTrkDist').textContent = distText; document.getElementById('pTrkDur').textContent = `${mm}:${ss}`; }
+    function updateTrackStats(){ const pts = trackPoints.length; const dist = trackDistance(); document.getElementById('trkPts').textContent = pts; const distText = dist>1609.344 ? (dist/1609.344).toFixed(2)+' mi' : Math.round(dist*3.28084)+' ft'; document.getElementById('trkDist').textContent = distText; const durMs = startTime ? (Date.now()-startTime) : (trackPoints.length? (trackPoints[trackPoints.length-1].t - trackPoints[0].t):0); const mm = Math.floor(durMs/60000), ss=(Math.floor(durMs/1000)%60).toString().padStart(2,'0'); document.getElementById('trkDur').textContent = `${mm}:${ss}`; document.getElementById('pTrkDist').textContent = distText; document.getElementById('pTrkDur').textContent = `${mm}:${ss}`; }
 
     function startTrack(){ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } if(watchId) return; document.getElementById('trkStatus').textContent = 'Recording'; document.getElementById('trkStartStop').textContent = 'Stop'; startTime = Date.now(); watchId = navigator.geolocation.watchPosition(pos=>{ const {latitude, longitude} = pos.coords; appendPoint(latitude, longitude, Date.now()); if(document.getElementById('trkFollow').checked){ map.setView([latitude, longitude], Math.max(map.getZoom(), 16)); } }, err=>{ console.warn('track error', err); }, { enableHighAccuracy:true, maximumAge:5000 }); }
     function stopTrack(){ if(!watchId) return; navigator.geolocation.clearWatch(watchId); watchId=null; document.getElementById('trkStatus').textContent = 'Stopped'; document.getElementById('trkStartStop').textContent = 'Start'; updateTrackStats(); }
@@ -337,10 +480,7 @@
 
     async function fetchWindAt(lat, lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('wind fetch failed'); const j = await r.json(); const cur = j.current || j.current_weather || {}; const speed = cur.wind_speed_10m ?? cur.windspeed ?? 0; const dir = cur.wind_direction_10m ?? cur.winddirection ?? 0; updateWindUI(dir, speed); }
 
-    async function refreshWind(){ try{ await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); } catch(_) { // fallback to map center
-        const c = map.getCenter(); try{ await fetchWindAt(c.lat, c.lng); return; } catch(e){ windText.textContent='Wind: n/a'; return; } }
-      // if geolocation worked we get it again to read coords
-      navigator.geolocation.getCurrentPosition(async pos=>{ try{ await fetchWindAt(pos.coords.latitude, pos.coords.longitude); } catch(e){ const c=map.getCenter(); try{ await fetchWindAt(c.lat,c.lng);}catch{ windText.textContent='Wind: n/a'; } } }); }
+    async function refreshWind(){ try{ await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); } catch(_) { const c = map.getCenter(); try{ await fetchWindAt(c.lat, c.lng); return; } catch(e){ windText.textContent='Wind: n/a'; return; } } navigator.geolocation.getCurrentPosition(async pos=>{ try{ await fetchWindAt(pos.coords.latitude, pos.coords.longitude); } catch(e){ const c=map.getCenter(); try{ await fetchWindAt(c.lat,c.lng);}catch{ windText.textContent='Wind: n/a'; } } }); }
 
     btnWind.onclick = refreshWind; refreshWind(); map.on('moveend', ()=>{ if(windText.textContent.includes('n/a')) refreshWind(); }); setInterval(refreshWind, 15*60*1000);
 
@@ -436,7 +576,7 @@
     // Track
     btnTrack.onclick = ()=> openSheet('track');
     document.getElementById('trkStartStop').onclick = ()=>{ if(watchId) stopTrack(); else startTrack(); };
-    document.getElementById('trkClear').onclick = clearTrack; // Note: Clear Track only (no global clear)
+    document.getElementById('trkClear').onclick = clearTrack; // Clear Track only
     document.getElementById('trkExport').onclick = exportGPX;
 
     // Radar button toggles visibility quickly, then opens sheet
@@ -458,10 +598,23 @@
 
     setInfoVisible(getInfoVisible());
 
-    // Export / Import / Delete mode (moved to bottom menu)
-    btnExport.onclick = () => { const data = { drawings: drawnItems.toGeoJSON(), markers: serializeMarkers(), track: trackPoints }; const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url); };
+    // Export / Import / Delete mode (bottom menu)
+    btnExport.onclick = () => { const drawings = JSON.parse(localStorage.getItem(STORAGE_DRAW) || '{}'); const data = { drawings, markers: serializeMarkers(), track: trackPoints }; const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url); };
     btnImport.onclick = () => fileInput.click();
-    fileInput.onchange = (ev) => { const f = ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = () => { try{ const obj = JSON.parse(r.result); if(obj.type==='FeatureCollection' || obj.type==='Feature'){ L.geoJSON(obj, {onEachFeature:(_,l)=>drawnItems.addLayer(l)}); saveDraw(); } else { if(obj.drawings) L.geoJSON(obj.drawings, {onEachFeature:(_,l)=>drawnItems.addLayer(l)}); if(obj.markers) deserializeMarkers(obj.markers); if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); } } } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; } }; r.readAsText(f); };
+    fileInput.onchange = (ev) => { const f = ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = () => { try{ const obj = JSON.parse(r.result);
+        if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
+          // replace drawings bundle
+          localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
+          // clear and reload
+          drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
+        } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
+          // legacy: add to drawings
+          L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)});
+          saveDraw();
+        }
+        if(obj.markers) deserializeMarkers(obj.markers);
+        if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); }
+      } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; } }; r.readAsText(f); };
     btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`; };
 
     // Locate
@@ -474,7 +627,6 @@
     /*******************
      * LAYERS CONTROL   *
      *******************/
-    // Keep standard Leaflet layers control for power users
     L.control.layers(
       { 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
       { 'Ohio Public Hunting': ohioPublic, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer },
