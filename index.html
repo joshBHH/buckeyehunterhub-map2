@@ -42,7 +42,7 @@
     /* Bottom main menu */
     .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;flex-wrap:wrap}
     .main-menu button{flex:1;max-width:140px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .wind-btn{display:flex;align-items:center;gap:8px;max-width:220px}
+    .wind-btn{display:flex;align-items:center;gap:8px;max-width:240px}
     #windText{font-size:12px}
     .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
 
@@ -67,14 +67,14 @@
     .name{min-width:0}
     .actions button{margin-left:8px}
 
-    /* Segment distance labels */
+    /* Segment / total distance labels */
     .seglabel{background:rgba(16,31,20,.92);border:1px solid #203325;border-radius:10px;padding:2px 6px;font-size:11px;color:var(--text);box-shadow:var(--shadow)}
 
     @media (max-width:640px){
       .panel{left:8px;top:76px}
       .main-menu{gap:6px}
       .main-menu button{font-size:13px;padding:8px;max-width:120px}
-      .wind-btn{max-width:200px}
+      .wind-btn{max-width:220px}
       #windText{font-size:11px}
     }
   </style>
@@ -185,6 +185,25 @@
         <p class="tag">Tip: Tap the Radar button to toggle visibility quickly; use this sheet to change source & opacity.</p>
       </div>
     </div>
+
+    <!-- Wind & Scent cone sheet -->
+    <div class="sheet" id="windSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Wind & Scent Cone</h4>
+      <div class="content">
+        <div class="row"><span>Wind</span><button class="btn" id="windRefresh">Refresh now</button></div>
+        <div class="option"><span>Show scent cone</span><input id="coneToggle" type="checkbox"></div>
+        <div class="option"><span>Width</span><input id="coneWidth" type="range" min="20" max="120" step="5" value="60" style="width:160px"></div>
+        <div class="option"><span>Length scale</span><input id="coneScale" type="range" min="0.5" max="2" step="0.1" value="1" style="width:160px"></div>
+        <div class="option"><span>Anchor</span>
+          <div>
+            <label style="margin-right:10px"><input type="radio" name="coneAnchor" value="gps" checked> GPS</label>
+            <label><input type="radio" name="coneAnchor" value="center"> Map center</label>
+          </div>
+        </div>
+        <p class="tag">Length scales with wind speed. Width spreads the cone. Anchor sets the origin.</p>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -192,9 +211,9 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
@@ -208,7 +227,7 @@
     const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:true } });
     map.addControl(drawControl);
 
-    const STORAGE_DRAW = 'bhh_drawings_v4';
+    const STORAGE_DRAW = 'bhh_drawings_v5';
 
     function featureTypeFromLayer(l){
       if(l instanceof L.Circle) return 'circle';
@@ -251,7 +270,7 @@
           L.geoJSON(data.geojson, { onEachFeature:(feat,layer)=>{
             layer._bhhName = (feat.properties && feat.properties.name) || defaultShapeName(featureTypeFromLayer(layer));
             drawnItems.addLayer(layer);
-            if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) labelPolylineSegments(layer);
+            if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) { labelPolylineSegments(layer); updatePolylineTotalLabel(layer); }
           }});
           (data.circles||[]).forEach(c=>{
             const layer = L.circle([c.lat,c.lng], { radius:c.radius });
@@ -259,7 +278,7 @@
             drawnItems.addLayer(layer);
           });
         } else if(data.type==='FeatureCollection'){ // legacy
-          L.geoJSON(data, { onEachFeature:(_,layer)=>{ layer._bhhName = defaultShapeName(featureTypeFromLayer(layer)); drawnItems.addLayer(layer); if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) labelPolylineSegments(layer); } });
+          L.geoJSON(data, { onEachFeature:(_,layer)=>{ layer._bhhName = defaultShapeName(featureTypeFromLayer(layer)); drawnItems.addLayer(layer); if(layer instanceof L.Polyline && !(layer instanceof L.Polygon)) { labelPolylineSegments(layer); updatePolylineTotalLabel(layer); } } });
         }
       }catch(e){ console.warn('restore drawings failed', e); }
     }
@@ -269,17 +288,20 @@
     map.on(L.Draw.Event.CREATED, e=>{
       const layer = e.layer;
       const type = e.layerType || featureTypeFromLayer(layer);
-      layer._bhhName = defaultShapeName(type);
+      // name prompt
+      const suggested = defaultShapeName(type);
+      const nm = prompt(`Name this ${type}:`, suggested);
+      layer._bhhName = (nm===null || nm.trim()==='') ? suggested : nm.trim();
       drawnItems.addLayer(layer);
-      if(type==='polyline') labelPolylineSegments(layer);
+      if(type==='polyline') { labelPolylineSegments(layer); updatePolylineTotalLabel(layer); }
       saveDraw();
       refreshWaypointsUI();
     });
-    map.on(L.Draw.Event.EDITED, e=>{ e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); } }); saveDraw(); refreshWaypointsUI(); });
-    map.on(L.Draw.Event.DELETED, e=>{ e.layers.eachLayer(l=> removeSegLabels(l)); saveDraw(); refreshWaypointsUI(); });
+    map.on(L.Draw.Event.EDITED, e=>{ e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); updatePolylineTotalLabel(l); } }); saveDraw(); refreshWaypointsUI(); });
+    map.on(L.Draw.Event.DELETED, e=>{ e.layers.eachLayer(l=> { removeSegLabels(l); removeTotalLabel(l); }); saveDraw(); refreshWaypointsUI(); });
 
     /*******************
-     * SEGMENT LABELS FOR POLYLINES
+     * SEGMENT + TOTAL LABELS FOR POLYLINES
      *******************/
     const segmentLabelsGroup = L.layerGroup().addTo(map);
 
@@ -292,6 +314,7 @@
     function removeSegLabels(layer){
       if(layer._segLabels){ layer._segLabels.forEach(lbl=> segmentLabelsGroup.removeLayer(lbl)); layer._segLabels = null; }
     }
+    function removeTotalLabel(layer){ if(layer._totalLabel){ segmentLabelsGroup.removeLayer(layer._totalLabel); layer._totalLabel=null; } }
 
     function labelPolylineSegments(layer){
       removeSegLabels(layer);
@@ -307,6 +330,25 @@
         labels.push(marker);
       }
       layer._segLabels = labels;
+    }
+
+    function polylineTotalDistance(layer){
+      const latlngs = layer.getLatLngs();
+      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      let d=0; for(let i=1;i<pts.length;i++){ d += map.distance(pts[i-1], pts[i]); } return d;
+    }
+
+    function updatePolylineTotalLabel(layer){
+      removeTotalLabel(layer);
+      const latlngs = layer.getLatLngs();
+      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      if(pts.length<2) return;
+      const a = pts[pts.length-2], b = pts[pts.length-1];
+      const anchor = L.latLng((a.lat*0.3 + b.lat*0.7), (a.lng*0.3 + b.lng*0.7));
+      const total = fmtFeetMiles(polylineTotalDistance(layer));
+      const marker = L.marker(anchor, { interactive:false, icon: L.divIcon({ className:'', html:`<div class="seglabel"><b>Total:</b> ${total}</div>` }) });
+      marker.addTo(segmentLabelsGroup);
+      layer._totalLabel = marker;
     }
 
     function relabelPolyline(layer){ labelPolylineSegments(layer); }
@@ -430,7 +472,7 @@
       }
       if(e.target.classList.contains('del')){
         if(obj.kind==='wp'){ markersLayer.removeLayer(obj.layer); saveMarkers(); }
-        else { removeSegLabels(obj.layer); drawnItems.removeLayer(obj.layer); saveDraw(); }
+        else { removeSegLabels(obj.layer); removeTotalLabel(obj.layer); drawnItems.removeLayer(obj.layer); saveDraw(); }
         refreshWaypointsUI();
       }
     });
@@ -464,25 +506,102 @@
     function stopTrack(){ if(!watchId) return; navigator.geolocation.clearWatch(watchId); watchId=null; document.getElementById('trkStatus').textContent = 'Stopped'; document.getElementById('trkStartStop').textContent = 'Start'; updateTrackStats(); }
     function clearTrack(){ stopTrack(); trackPoints=[]; lastPoint=null; trackLayer.setLatLngs([]); saveTrack(); }
 
-    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="BuckeyeHunterHub" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat="${p.lat}" lon="${p.lng}"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
+    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"BuckeyeHunterHub\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat=\"${p.lat}\" lon=\"${p.lng}\"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
 
     loadTrack();
 
     /*******************
-     * WIND (live by location with map-center fallback) *
+     * WIND (live) + SCENT CONE
      *******************/
     const btnWind = document.getElementById('menuWind');
     const windText = document.getElementById('windText');
     const windArrow = document.getElementById('windArrow');
 
+    let currentWind = { fromDeg: null, speed: 0 };
+    let lastGPS = null;
+
     function degToCardinal(d){ const dirs = ['N','NE','E','SE','S','SW','W','NW']; return dirs[Math.round(d/45)%8]; }
     function updateWindUI(fromDeg, speed){ const toDeg = (fromDeg + 180) % 360; const from = degToCardinal(fromDeg); const to = degToCardinal(toDeg); windArrow.style.transform = `rotate(${toDeg}deg)`; windText.textContent = `Wind: ${from} → ${to}  ${Math.round(speed)} mph`; }
 
-    async function fetchWindAt(lat, lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('wind fetch failed'); const j = await r.json(); const cur = j.current || j.current_weather || {}; const speed = cur.wind_speed_10m ?? cur.windspeed ?? 0; const dir = cur.wind_direction_10m ?? cur.winddirection ?? 0; updateWindUI(dir, speed); }
+    async function fetchWindAt(lat, lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('wind fetch failed'); const j = await r.json(); const cur = j.current || j.current_weather || {}; const speed = cur.wind_speed_10m ?? cur.windspeed ?? 0; const dir = cur.wind_direction_10m ?? cur.winddirection ?? 0; currentWind = { fromDeg: dir, speed }; updateWindUI(dir, speed); updateScentCone(); }
 
-    async function refreshWind(){ try{ await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); } catch(_) { const c = map.getCenter(); try{ await fetchWindAt(c.lat, c.lng); return; } catch(e){ windText.textContent='Wind: n/a'; return; } } navigator.geolocation.getCurrentPosition(async pos=>{ try{ await fetchWindAt(pos.coords.latitude, pos.coords.longitude); } catch(e){ const c=map.getCenter(); try{ await fetchWindAt(c.lat,c.lng);}catch{ windText.textContent='Wind: n/a'; } } }); }
+    async function refreshWind(){
+      try{
+        const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); });
+        lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        await fetchWindAt(lastGPS.lat, lastGPS.lng);
+      } catch(_) {
+        const c = map.getCenter();
+        await fetchWindAt(c.lat, c.lng).catch(()=>{ windText.textContent='Wind: n/a'; });
+      }
+    }
 
-    btnWind.onclick = refreshWind; refreshWind(); map.on('moveend', ()=>{ if(windText.textContent.includes('n/a')) refreshWind(); }); setInterval(refreshWind, 15*60*1000);
+    // Wind sheet controls
+    const windSheet = document.getElementById('windSheet');
+    const windRefreshBtn = document.getElementById('windRefresh');
+    const coneToggle = document.getElementById('coneToggle');
+    const coneWidth = document.getElementById('coneWidth');
+    const coneScale = document.getElementById('coneScale');
+    const coneAnchorRadios = Array.from(document.querySelectorAll('input[name="coneAnchor"]'));
+
+    // Restore settings
+    (function restoreConeSettings(){
+      coneToggle.checked = localStorage.getItem('cone_vis')==='1';
+      coneWidth.value = localStorage.getItem('cone_w') || '60';
+      coneScale.value = localStorage.getItem('cone_s') || '1';
+      const anch = localStorage.getItem('cone_a') || 'gps';
+      const r = coneAnchorRadios.find(x=>x.value===anch); if(r) r.checked=true;
+    })();
+
+    let scentConeLayer = L.polygon([], { color:'#f59e0b', weight:2, fillColor:'#f59e0b', fillOpacity:0.2 });
+
+    function toRad(x){ return x*Math.PI/180; }
+    function toDeg(x){ return x*180/Math.PI; }
+    function destPoint(lat,lng,bearingDeg,distM){
+      const R=6378137; const br=toRad(bearingDeg); const lat1=toRad(lat), lon1=toRad(lng); const dr=distM/R;
+      const lat2 = Math.asin(Math.sin(lat1)*Math.cos(dr) + Math.cos(lat1)*Math.sin(dr)*Math.cos(br));
+      const lon2 = lon1 + Math.atan2(Math.sin(br)*Math.sin(dr)*Math.cos(lat1), Math.cos(dr)-Math.sin(lat1)*Math.sin(lat2));
+      return L.latLng(toDeg(lat2), toDeg(lon2));
+    }
+
+    function updateScentCone(){
+      if(!coneToggle.checked){ if(map.hasLayer(scentConeLayer)) map.removeLayer(scentConeLayer); return; }
+      const wind = currentWind; if(wind.fromDeg==null){ return; }
+      const toDegWind = (wind.fromDeg + 180) % 360;
+      const width = parseFloat(coneWidth.value); const half = width/2;
+      const scale = parseFloat(coneScale.value);
+      const speed = Math.max(1, wind.speed||1); // mph
+      const baseLen = 150 + speed*90; // meters, empirical
+      const length = baseLen * scale;
+      const anchorMode = (coneAnchorRadios.find(r=>r.checked)?.value) || 'gps';
+      const origin = (anchorMode==='gps' && lastGPS) ? lastGPS : map.getCenter();
+
+      // Build sector polygon
+      const pts = [L.latLng(origin.lat, origin.lng)];
+      for(let a=-half; a<=half; a+= Math.max(5, width/8)){
+        pts.push(destPoint(origin.lat, origin.lng, toDegWind+a, length));
+      }
+      pts.push(L.latLng(origin.lat, origin.lng));
+      scentConeLayer.setLatLngs([pts]);
+      if(!map.hasLayer(scentConeLayer)) scentConeLayer.addTo(map);
+    }
+
+    // Persist changes
+    function persistCone(){ localStorage.setItem('cone_vis', coneToggle.checked?'1':'0'); localStorage.setItem('cone_w', coneWidth.value); localStorage.setItem('cone_s', coneScale.value); const anch = (coneAnchorRadios.find(r=>r.checked)||{}).value||'gps'; localStorage.setItem('cone_a', anch); }
+    coneToggle.onchange = ()=>{ persistCone(); updateScentCone(); };
+    coneWidth.oninput = ()=>{ persistCone(); updateScentCone(); };
+    coneScale.oninput = ()=>{ persistCone(); updateScentCone(); };
+    coneAnchorRadios.forEach(r=> r.addEventListener('change', ()=>{ persistCone(); updateScentCone(); }));
+
+    // Wind button: open sheet + refresh
+    btnWind.onclick = ()=>{ openSheet('wind'); refreshWind(); };
+    windRefreshBtn.onclick = ()=> refreshWind();
+
+    // Keep scent cone current
+    map.on('moveend', ()=>{ const anch = localStorage.getItem('cone_a')||'gps'; if(anch==='center') updateScentCone(); });
+
+    // Initial wind fetch + periodic
+    refreshWind(); setInterval(refreshWind, 15*60*1000);
 
     /*******************
      * OHIO PUBLIC HUNTING (Local file first, then ODNR)
@@ -538,8 +657,8 @@
     const fileInput = document.getElementById('fileImport');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet') };
-    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); syncOverlayChecks(); syncBaseRadio(); }
+    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet') };
+    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
@@ -603,12 +722,9 @@
     btnImport.onclick = () => fileInput.click();
     fileInput.onchange = (ev) => { const f = ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = () => { try{ const obj = JSON.parse(r.result);
         if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
-          // replace drawings bundle
           localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
-          // clear and reload
           drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
         } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
-          // legacy: add to drawings
           L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)});
           saveDraw();
         }
