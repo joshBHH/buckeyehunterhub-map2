@@ -42,7 +42,7 @@
     /* Bottom main menu */
     .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;flex-wrap:wrap}
     .main-menu button{flex:1;max-width:140px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .wind-btn{display:flex;align-items:center;gap:8px;max-width:240px}
+    .wind-btn{display:flex;align-items:center;gap:8px;max-width:260px}
     #windText{font-size:12px}
     .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
 
@@ -74,7 +74,7 @@
       .panel{left:8px;top:76px}
       .main-menu{gap:6px}
       .main-menu button{font-size:13px;padding:8px;max-width:120px}
-      .wind-btn{max-width:220px}
+      .wind-btn{max-width:240px}
       #windText{font-size:11px}
     }
   </style>
@@ -538,7 +538,6 @@
     }
 
     // Wind sheet controls
-    const windSheet = document.getElementById('windSheet');
     const windRefreshBtn = document.getElementById('windRefresh');
     const coneToggle = document.getElementById('coneToggle');
     const coneWidth = document.getElementById('coneWidth');
@@ -661,15 +660,15 @@
     function setRadarVisibility(v){ document.getElementById('radarToggle').checked = v; localStorage.setItem('radar_vis', v? '1':'0'); setRadarSource(localStorage.getItem('radar_src')||'rainviewer'); }
     function setRadarOpacity(val){ const v=parseFloat(val); radarRain.setOpacity(v); radarNoaa.setOpacity(v); localStorage.setItem('radar_opacity', v.toString()); }
 
-    // Add to layers control as toggles too
+    /*******************
+     * LAYERS CONTROL   *
+     *******************/
     const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
     L.control.layers({ 'Basic':basic, 'Satellite':satellite, 'Topographic':topo }, overlaysForControl, { position:'bottomleft' }).addTo(map);
 
     /*******************
      * BOTTOM MENU ACTIONS
      *******************/
-    const btnFieldInfo = document.getElementById('toggleFieldInfo');
-    const infoPanel = document.getElementById('infoPanel');
     const btnBasemap = document.getElementById('toggleBasemap');
     const btnLocate  = document.getElementById('menuLocate');
     const btnWaypoints = document.getElementById('menuWaypoints');
@@ -688,7 +687,7 @@
 
     // Make entire .option row clickable (toggle inner input)
     document.querySelectorAll('.sheet .option').forEach(opt=>{
-      opt.addEventListener('click', (e)=>{
+      opt.addEventListener('click', ()=>{
         const input = opt.querySelector('input'); if(!input) return;
         if(input.type==='radio'){ input.checked = true; input.dispatchEvent(new Event('change', {bubbles:true})); }
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
@@ -699,7 +698,7 @@
     const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
     function syncBaseRadio(){ const k = localStorage.getItem(STORAGE_BASE) || 'basic'; const r = radios.find(r=>r.value===k); if(r) r.checked = true; }
     btnBasemap.onclick = ()=>{ openSheet('basemap'); };
-    radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); })); }));
+    radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); }));
 
     // Overlay toggles in the basemap sheet
     const ovlOhio = document.getElementById('ovlOhio');
@@ -715,7 +714,7 @@
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
-    // Waypoints
+    // Waypoints sheet toggle
     btnWaypoints.onclick = ()=> openSheet('waypoints');
 
     // Track
@@ -735,11 +734,13 @@
     radarSrcRadios.forEach(r=> r.addEventListener('change', ()=> setRadarSource(r.value)));
 
     // Field Info toggle & position persistence
+    const infoPanel = document.getElementById('infoPanel');
+    const btnFieldInfo = document.getElementById('toggleFieldInfo');
     const STORAGE_INFO_POS = 'ui_info_pos';
     const STORAGE_INFO_VIS = 'ui_info_visible';
     function setInfoVisible(v){ infoPanel.style.display = v? 'block':'none'; localStorage.setItem(STORAGE_INFO_VIS, v? '1':'0'); if(v){ updateSun(); updateTrackStats(); } }
     function getInfoVisible(){ return localStorage.getItem(STORAGE_INFO_VIS) === '1'; }
-    document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
+    btnFieldInfo.onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
 
     setInfoVisible(getInfoVisible());
 
@@ -763,17 +764,22 @@
     btnLocate.onclick = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const latlng=[pos.coords.latitude, pos.coords.longitude]; map.setView(latlng, 15); }, err=> alert('Location error: '+err.message), { enableHighAccuracy:true, timeout:8000 }); };
 
     // Draggable Field Info
-    function makeDraggable(el, handle, storageKey){ let sx=0, sy=0, sl=0, st=0, dragging=false; const start=(x,y)=>{ dragging=true; sx=x; sy=y; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',tmove,{passive:false}); document.addEventListener('touchend',up); }; const down=(e)=>{ const p=point(e); start(p.x,p.y); e.preventDefault(); }; const tdown=(e)=>{ const p=point(e); start(p.x,p.y); }; const move=(e)=>{ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }; const tmove=(e)=>{ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }; const up=()=>{ dragging=false; document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',tmove); document.removeEventListener('touchend',up); savePos(); }; function point(e){ if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; } function apply(l,t){ const vw=innerWidth, vh=innerHeight; const w=el.offsetWidth, h=el.offsetHeight; l=Math.max(4,Math.min(vw-w-4,l)); t=Math.max(60,Math.min(vh-h-4,t)); el.style.left=l+'px'; el.style.top=t+'px'; } function savePos(){ const r=el.getBoundingClientRect(); localStorage.setItem(storageKey, JSON.stringify({left:r.left, top:r.top})); } try{ const s=JSON.parse(localStorage.getItem(storageKey)||'null'); if(s){ el.style.left=s.left+'px'; el.style.top=s.top+'px'; } }catch{} handle.addEventListener('mousedown',down); handle.addEventListener('touchstart',tdown,{passive:false}); }
-    makeDraggable(infoPanel, document.getElementById('infoHandle'), 'ui_info_pos');
-
-    /*******************
-     * LAYERS CONTROL   *
-     *******************/
-    L.control.layers(
-      { 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
-      { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer },
-      { position:'bottomleft' }
-    ).addTo(map);
+    function makeDraggable(el, handle, storageKey){
+      let sx=0, sy=0, sl=0, st=0, dragging=false;
+      function point(e){ if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; }
+      function apply(l,t){ const vw=innerWidth, vh=innerHeight; const w=el.offsetWidth, h=el.offsetHeight; l=Math.max(4,Math.min(vw-w-4,l)); t=Math.max(60,Math.min(vh-h-4,t)); el.style.left=l+'px'; el.style.top=t+'px'; }
+      function savePos(){ const r=el.getBoundingClientRect(); localStorage.setItem(storageKey, JSON.stringify({left:r.left, top:r.top})); }
+      function move(e){ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }
+      function tmove(e){ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }
+      function up(){ dragging=false; document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',tmove); document.removeEventListener('touchend',up); savePos(); }
+      function start(x,y){ dragging=true; sx=x; sy=y; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',tmove,{passive:false}); document.addEventListener('touchend',up); }
+      function down(e){ const p=point(e); start(p.x,p.y); e.preventDefault(); }
+      function tdown(e){ const p=point(e); start(p.x,p.y); }
+      try{ const s=JSON.parse(localStorage.getItem(storageKey)||'null'); if(s){ el.style.left=s.left+'px'; el.style.top=s.top+'px'; } }catch{}
+      handle.addEventListener('mousedown',down);
+      handle.addEventListener('touchstart',tdown,{passive:false});
+    }
+    makeDraggable(document.getElementById('infoPanel'), document.getElementById('infoHandle'), 'ui_info_pos');
 
     /*******************
      * SUN INFO         *
