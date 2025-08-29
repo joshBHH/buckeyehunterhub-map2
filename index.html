@@ -89,7 +89,9 @@
     }
 
     @supports (height: 100svh){ #map{height:100svh} }
-  </style>
+    /* Always-visible county name labels */
+  .county-label{position:absolute; transform:translate(-50%,-50%); background:rgba(16,31,20,.75); border:1px solid #203325; color:#e7f1e8; padding:2px 6px; border-radius:10px; font-weight:600; letter-spacing:.3px; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5); pointer-events:none; user-select:none}
+</style>
 </head>
 <body>
   <div id="app">
@@ -671,17 +673,50 @@
     loadOhioPublic();
 
     /*******************
-     * OHIO COUNTIES (outline + tooltip)
+     * OHIO COUNTIES (outline + always-on labels)
      *******************/
     const ohioCounties = L.geoJSON(null, {
       style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
       onEachFeature: (feat, layer) => {
         const name = (feat.properties && (feat.properties.County_Name || feat.properties.COUNTY_NAME)) || 'County';
-        layer.bindTooltip(String(name), { sticky:true, direction:'center', className:'' });
+        // Keep hover thickness
         layer.on('mouseover', ()=> layer.setStyle({ weight:2 }));
         layer.on('mouseout',  ()=> layer.setStyle({ weight:1 }));
+        // Store name for labeling
+        layer._countyName = String(name);
       }
     });
+
+    const countyLabels = L.layerGroup();
+
+    function labelFontForZoom(z){ if(z>=11) return 14; if(z>=9) return 12; if(z>=7) return 10; return 0; }
+    function refreshCountyLabels(){
+      const fs = labelFontForZoom(map.getZoom());
+      countyLabels.eachLayer(m => {
+        const el = m.getElement();
+        if(!el) return;
+        if(fs===0){ el.style.display='none'; }
+        else { el.style.display='block'; el.style.fontSize = fs+'px'; }
+      });
+    }
+
+    function buildCountyLabels(){
+      countyLabels.clearLayers();
+      ohioCounties.eachLayer(layer => {
+        try{
+          const center = layer.getBounds().getCenter();
+          const name = layer._countyName || 'County';
+          const lbl = L.marker(center, {
+            interactive:false,
+            pane:'tooltipPane',
+            icon: L.divIcon({ className:'county-label', html: name })
+          });
+          countyLabels.addLayer(lbl);
+        }catch(_){/* ignore */}
+      });
+      refreshCountyLabels();
+      if(map.hasLayer(ohioCounties) && !map.hasLayer(countyLabels)) countyLabels.addTo(map);
+    }
 
     async function loadOhioCounties(){
       try{
@@ -689,9 +724,11 @@
         const r = await fetch(url);
         const j = await r.json();
         ohioCounties.addData(j);
+        buildCountyLabels();
       }catch(e){ console.warn('Counties layer fetch failed', e); }
     }
     loadOhioCounties();
+    map.on('zoomend', refreshCountyLabels);
 
     /*******************
      * RADAR LAYERS     *
@@ -750,12 +787,32 @@
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
+    function syncOverlayChecks(){
+      ovlOhio.checked = map.hasLayer(ohioPublic);
+      ovlCounties.checked = map.hasLayer(ohioCounties);
+      ovlDraw.checked = map.hasLayer(drawnItems);
+      ovlMarks.checked = map.hasLayer(markersLayer);
+      ovlTrack.checked = map.hasLayer(trackLayer);
+    }
+
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
-    ovlCounties.onchange = ()=> ovlCounties.checked ? ohioCounties.addTo(map) : map.removeLayer(ohioCounties);
+    ovlCounties.onchange = ()=> {
+      if(ovlCounties.checked){
+        ohioCounties.addTo(map);
+        countyLabels.addTo(map);
+        refreshCountyLabels();
+      } else {
+        map.removeLayer(ohioCounties);
+        map.removeLayer(countyLabels);
+      }
+    };
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
+
+    // Keep labels in sync when toggled via the Layers control
+    map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
+    map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
 
     // Sheets buttons
     document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
