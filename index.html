@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- SunCalc for sunrise/sunset -->
+  <!-- SunCalc for sun/moon -->
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 
   <style>
@@ -29,12 +29,12 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Roboto,Arial,sans-serif}
-    /* Ensure true fullscreen on mobile browsers */
+    /* Full screen map on mobile */
     #map{position:fixed;inset:0;height:100dvh}
     #map.placing{cursor: crosshair}
 
     /* Info panel (smaller + draggable) */
-    .panel{position:fixed;left:12px;top:80px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);padding:8px 10px;min-width:180px;max-width:240px}
+    .panel{position:fixed;left:12px;top:80px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);padding:8px 10px;min-width:180px;max-width:260px}
     .panel h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:8px;cursor:move}
     .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #1d3323}
     .row:last-child{border-bottom:0}
@@ -71,21 +71,24 @@
     /* Segment / total distance labels */
     .seglabel{background:rgba(16,31,20,.92);border:1px solid #203325;border-radius:10px;padding:2px 6px;font-size:11px;color:var(--text);box-shadow:var(--shadow)}
 
+    /* Hunt score list */
+    .score-list{max-height:48vh;overflow:auto;margin-top:8px}
+    .score-item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
+    .bar{height:8px;background:#1f3b29;border:1px solid #2a4a32;border-radius:8px;overflow:hidden}
+    .bar > span{display:block;height:100%;background:#6dbc5d}
+
     /* --- Mobile tweaks --- */
     @media (max-width:640px){
       .panel{left:8px;top:72px}
       /* Make bottom bar a horizontal scroller so button text stays visible */
       .main-menu{gap:10px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(12px + var(--safe-bottom))}
       .main-menu::-webkit-scrollbar{height:6px}
-      .main-menu button{flex:0 0 auto;min-width:136px;max-width:none;font-size:14px;padding:10px 12px}
+      .main-menu button{flex:0 0 auto;min-width:132px;max-width:none;font-size:14px;padding:10px 12px}
       .wind-btn{min-width:180px}
       #windText{font-size:12.5px}
     }
 
-    /* Extra support for newer viewport units if available */
-    @supports (height: 100svh){
-      #map{height:100svh}
-    }
+    @supports (height: 100svh){ #map{height:100svh} }
   </style>
 </head>
 <body>
@@ -106,6 +109,8 @@
     <!-- Bottom main menu -->
     <nav class="main-menu" id="mainMenu">
       <button id="toggleFieldInfo">Field Info</button>
+      <button id="menuMoon">Moon Phases</button>
+      <button id="menuScore">Hunt Score</button>
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
       <button id="menuWaypoints">Waypoints</button>
       <button id="menuTrack">Track</button>
@@ -214,6 +219,33 @@
         <p class="tag">Length scales with wind speed. Width spreads the cone. Anchor sets the origin.</p>
       </div>
     </div>
+
+    <!-- Moon phases sheet -->
+    <div class="sheet" id="moonSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Moon Phases</h4>
+      <div class="content" id="moonContent">
+        <!-- Filled by JS: current phase + next 7 days -->
+      </div>
+    </div>
+
+    <!-- Hunt score sheet -->
+    <div class="sheet" id="scoreSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Hunt Score (next 48h)</h4>
+      <div class="content">
+        <div class="option"><span>Location</span>
+          <div>
+            <label style="margin-right:10px"><input type="radio" name="scoreLoc" value="gps" checked> GPS</label>
+            <label><input type="radio" name="scoreLoc" value="center"> Map center</label>
+          </div>
+        </div>
+        <div class="option"><span>Refresh data</span><button class="btn" id="scoreRefresh">Update</button></div>
+        <div class="score-list" id="scoreList"></div>
+        <p class="tag">Score blends wind, temp, precip, light, and moon. Higher is better; dusk/dawn often peak. Use with local knowledge.</p>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -221,9 +253,9 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=YOUR_MAPTILER_KEY', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
@@ -603,6 +635,8 @@
     coneAnchorRadios.forEach(r=> r.addEventListener('change', ()=>{ persistCone(); updateScentCone(); }));
 
     // Wind button: open sheet + refresh
+    const btnMoon = document.getElementById('menuMoon');
+    const btnScore = document.getElementById('menuScore');
     btnWind.onclick = ()=>{ openSheet('wind'); refreshWind(); };
     windRefreshBtn.onclick = ()=> refreshWind();
 
@@ -689,8 +723,8 @@
     const fileInput = document.getElementById('fileImport');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet') };
-    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } }
+    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet') };
+    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
@@ -723,14 +757,12 @@
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
-    // Waypoints sheet toggle
+    // Sheets buttons
+    document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
+    btnMoon.onclick = ()=> openSheet('moon');
+    btnScore.onclick = ()=> openSheet('score');
     btnWaypoints.onclick = ()=> openSheet('waypoints');
-
-    // Track
     btnTrack.onclick = ()=> openSheet('track');
-    document.getElementById('trkStartStop').onclick = ()=>{ if(watchId) stopTrack(); else startTrack(); };
-    document.getElementById('trkClear').onclick = clearTrack; // Clear Track only
-    document.getElementById('trkExport').onclick = exportGPX;
 
     // Radar button toggles visibility quickly, then opens sheet
     const radarToggle = document.getElementById('radarToggle');
@@ -749,8 +781,6 @@
     const STORAGE_INFO_VIS = 'ui_info_visible';
     function setInfoVisible(v){ infoPanel.style.display = v? 'block':'none'; localStorage.setItem(STORAGE_INFO_VIS, v? '1':'0'); if(v){ updateSun(); updateTrackStats(); } }
     function getInfoVisible(){ return localStorage.getItem(STORAGE_INFO_VIS) === '1'; }
-    btnFieldInfo.onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
-
     setInfoVisible(getInfoVisible());
 
     // Export / Import / Delete mode (bottom menu)
@@ -791,10 +821,163 @@
     makeDraggable(document.getElementById('infoPanel'), document.getElementById('infoHandle'), 'ui_info_pos');
 
     /*******************
-     * SUN INFO         *
+     * SUN & MOON       *
      *******************/
     function updateSun(){ const c = map.getCenter(); const now = new Date(); const t = SunCalc.getTimes(now, c.lat, c.lng); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; document.getElementById('pSunrise').textContent = fmt(t.sunrise); document.getElementById('pSunset').textContent  = fmt(t.sunset); const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0); document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`; }
     updateSun(); map.on('moveend', updateSun);
+
+    function phaseName(phase){
+      // SunCalc phase: 0 new → 0.25 first quarter → 0.5 full → 0.75 last quarter → 1 new
+      const p = (phase + 1) % 1;
+      if(p < 0.03 || p > 0.97) return 'New Moon';
+      if(p < 0.22) return 'Waxing Crescent';
+      if(p < 0.28) return 'First Quarter';
+      if(p < 0.47) return 'Waxing Gibbous';
+      if(p < 0.53) return 'Full Moon';
+      if(p < 0.72) return 'Waning Gibbous';
+      if(p < 0.78) return 'Last Quarter';
+      return 'Waning Crescent';
+    }
+    function phaseEmoji(phase){
+      const p=(phase+1)%1;
+      if(p < 0.03 || p > 0.97) return '🌑';
+      if(p < 0.22) return '🌒';
+      if(p < 0.28) return '🌓';
+      if(p < 0.47) return '🌔';
+      if(p < 0.53) return '🌕';
+      if(p < 0.72) return '🌖';
+      if(p < 0.78) return '🌗';
+      return '🌘';
+    }
+
+    function renderMoon(){
+      const c = map.getCenter();
+      const now = new Date();
+      const illum = SunCalc.getMoonIllumination(now);
+      const mt = SunCalc.getMoonTimes(now, c.lat, c.lng, true);
+      const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
+      const pct = Math.round(illum.fraction*100);
+      let html = `<div class="row"><span>Today</span><strong class="tag">${phaseEmoji(illum.phase)} ${phaseName(illum.phase)} · ${pct}%</strong></div>`+
+                 `<div class="row"><span>Moonrise</span><strong class="tag">${fmt(mt.rise)}</strong></div>`+
+                 `<div class="row"><span>Moonset</span><strong class="tag">${fmt(mt.set)}</strong></div>`+
+                 `<p class="tag" style="margin-top:6px">Next 7 days</p>`;
+      for(let i=1;i<=7;i++){
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+        const im = SunCalc.getMoonIllumination(d);
+        const tt = SunCalc.getMoonTimes(d, c.lat, c.lng, true);
+        html += `<div class="row"><span>${d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</span><strong class="tag">${phaseEmoji(im.phase)} ${Math.round(im.fraction*100)}% · ${fmt(tt.rise)} / ${fmt(tt.set)}</strong></div>`;
+      }
+      document.getElementById('moonContent').innerHTML = html;
+    }
+
+    /*******************
+     * HUNT SCORE       *
+     *******************/
+    const scoreList = document.getElementById('scoreList');
+    const scoreRefreshBtn = document.getElementById('scoreRefresh');
+    const scoreLocRadios = Array.from(document.querySelectorAll('input[name="scoreLoc"]'));
+
+    function gauss(x, mu, sigma){ const z=(x-mu)/sigma; return Math.exp(-0.5*z*z); }
+    function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+
+    async function fetchForecast(lat,lng){
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`;
+      const r = await fetch(url); if(!r.ok) throw new Error('forecast fetch failed'); return r.json();
+    }
+
+    function buildSunWindows(daily){
+      const windows = {}; // dateStr -> {sr, ss}
+      for(let i=0;i<daily.time.length;i++){
+        windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) };
+      }
+      return windows;
+    }
+
+    function lunarBoost(date, lat, lng){
+      // small bonus if moon is low during predawn/dusk on new-ish moon, or overhead mid-day on full-ish moon
+      const ill = SunCalc.getMoonIllumination(date);
+      const pos = SunCalc.getMoonPosition(date, lat, lng);
+      const frac = ill.fraction; // 0..1
+      const alt = pos.altitude;  // radians
+      let boost = 0;
+      if(frac < 0.3){ // near new — better at dawn/dusk when moon is low
+        boost += clamp((0.3 - frac)/0.3, 0, 1) * clamp((0.2 - Math.abs(alt))/0.2, 0, 1) * 12;
+      } else if(frac > 0.7){ // near full — mid-day overhead can see a small bump
+        boost += clamp((frac - 0.7)/0.3, 0, 1) * clamp((alt - 0.4)/0.6, 0, 1) * 8;
+      }
+      return boost; // up to ~12
+    }
+
+    async function computeHuntScore(){
+      scoreList.innerHTML = '<p class="tag">Loading forecast…</p>';
+      let anchor = map.getCenter();
+      const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps';
+      if(which==='gps'){
+        try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){}
+      }
+      let data; try{ data = await fetchForecast(anchor.lat, anchor.lng); } catch(e){ scoreList.innerHTML = '<p class="tag">Forecast unavailable.</p>'; return; }
+      const hourly = data.hourly || {}; const times = (hourly.time||[]).map(t=> new Date(t));
+      const ws = hourly.wind_speed_10m || []; const tp = hourly.temperature_2m || []; const pr = hourly.precipitation_probability || []; const cc = hourly.cloud_cover || []; const sp = hourly.surface_pressure || [];
+      const sun = buildSunWindows(data.daily || {time:[], sunrise:[], sunset:[]});
+
+      // compute day medians for temperature baseline by date
+      const byDay = {};
+      times.forEach((d,i)=>{ const k=d.toISOString().slice(0,10); (byDay[k]||(byDay[k]={temps:[]})).temps.push(tp[i]); });
+      const medByDay = {}; Object.keys(byDay).forEach(k=>{ const arr = byDay[k].temps.slice().sort((a,b)=>a-b); const m = arr[Math.floor(arr.length/2)]||arr[0]||0; medByDay[k]=m; });
+
+      const rows = [];
+      for(let i=0;i<times.length;i++){
+        const d = times[i]; const dateKey=d.toISOString().slice(0,10);
+        // Light factor: peaks at sunrise/sunset (±90 min)
+        const dayWin = sun[dateKey];
+        let light = 0.2; // base
+        if(dayWin){
+          const minsFrom = (a)=> Math.abs((d - a)/60000);
+          light = Math.max( gauss(minsFrom(dayWin.sr), 0, 65), gauss(minsFrom(dayWin.ss), 0, 65) );
+        }
+        light = clamp(light, 0, 1);
+
+        // Wind factor: prefer 4–12 mph; too calm or >20 mph penalize
+        const w = ws[i] ?? 0; const wind = Math.max( gauss(w, 8, 4), gauss(w, 10, 5) );
+
+        // Temp factor: better when cooler than the day's median
+        const t = tp[i] ?? 0; const med = medByDay[dateKey] ?? t; const temp = clamp( (med - t) / 12, -0.5, 1 ); // ~+1 when 12°F cooler
+
+        // Precip penalty if high probability
+        const p = pr[i] ?? 0; const precip = 1 - clamp((p-30)/70, 0, 1); // <30% fine; 100% → strong penalty
+
+        // Cloud cover slight positive near full moon at dawn; slight negative at day otherwise (keep tiny)
+        const cloud = 1 - (cc[i]||0)/300; // very small weight
+
+        // Lunar small boost
+        const lunar = lunarBoost(d, anchor.lat, anchor.lng) / 12; // normalize 0..1
+
+        // Combine with weights → 0..100
+        const score = clamp(
+          (light*0.38 + wind*0.22 + (temp+0.5)*0.16 + precip*0.18 + cloud*0.02 + lunar*0.04) * 100,
+          0, 100
+        );
+        rows.push({ d, score: Math.round(score), wind:w, temp:t, precip: p });
+      }
+
+      // Keep next 48h
+      const now = new Date();
+      const next48 = rows.filter(r=> r.d - now >= 0 && r.d - now <= 48*3600*1000);
+      next48.sort((a,b)=> b.score - a.score);
+      const top = next48.slice(0, 16).sort((a,b)=> a.d - b.d); // show 16 best, chronological
+
+      scoreList.innerHTML = top.map(r=>{
+        const w = r.score; const bar = Math.round(w);
+        const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'});
+        return `<div class="score-item">
+          <div class="tag">${time}</div>
+          <div class="bar"><span style="width:${bar}%"></span></div>
+          <div class="tag" style="text-align:right">${w} / 100</div>
+        </div>`;
+      }).join('') || '<p class="tag">No forecast rows.</p>';
+    }
+    scoreRefreshBtn.onclick = ()=> computeHuntScore();
+
   </script>
 </body>
 </html>
