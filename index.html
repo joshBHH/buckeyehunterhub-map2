@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1a0f" />
   <title>Buckeye Hunter Hub — Mobile Hunting Map</title>
+  <link rel="manifest" href="/manifest.webmanifest">
   
   <!-- Leaflet core -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -57,13 +59,14 @@
     .sheet h4{margin:6px 16px 8px;font-size:14px;color:var(--subtle)}
     .sheet .content{padding:4px 16px 14px}
     .sheet .row{border:0}
-    .sheet input[type="text"], .sheet input[type="number"], .sheet input[type="search"], .sheet select{width:100%;padding:8px 10px;border-radius:10px;border:1px solid #25432b;background:#14271a;color:var(--text)}
+    .sheet input[type="text"], .sheet input[type="number"], .sheet input[type="search"], .sheet select, .sheet textarea{width:100%;padding:8px 10px;border-radius:10px;border:1px solid #25432b;background:#14271a;color:var(--text)}
+    .sheet textarea{min-height:84px;resize:vertical}
     .btn{padding:8px 12px;border:1px solid #25432b;border-radius:10px;background:#14271a;color:var(--text);cursor:pointer}
     .btn.danger{border-color:#5a2222;background:#331616}
 
     /* Waypoints list */
     .wp-list{max-height:38vh;overflow:auto;margin-top:6px}
-    .item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
+    .item{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
     .emoji{font-size:18px}
     .name{min-width:0}
     .actions button{margin-left:8px}
@@ -77,6 +80,9 @@
     .bar{height:8px;background:#1f3b29;border:1px solid #2a4a32;border-radius:8px;overflow:hidden}
     .bar > span{display:block;height:100%;background:#6dbc5d}
 
+    /* County labels */
+    .county-label{position:absolute; transform:translate(-50%,-50%); background:rgba(16,31,20,.75); border:1px solid #203325; color:#e7f1e8; padding:2px 6px; border-radius:10px; font-weight:600; letter-spacing:.3px; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5); pointer-events:none; user-select:none}
+
     /* --- Mobile tweaks --- */
     @media (max-width:640px){
       .panel{left:8px;top:72px}
@@ -84,14 +90,12 @@
       .main-menu{gap:10px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(12px + var(--safe-bottom))}
       .main-menu::-webkit-scrollbar{height:6px}
       .main-menu button{flex:0 0 auto;min-width:132px;max-width:none;font-size:14px;padding:10px 12px}
-      .wind-btn{min-width:180px}
+      .wind-btn{min-width:200px}
       #windText{font-size:12.5px}
     }
 
     @supports (height: 100svh){ #map{height:100svh} }
-    /* Always-visible county name labels */
-  .county-label{position:absolute; transform:translate(-50%,-50%); background:rgba(16,31,20,.75); border:1px solid #203325; color:#e7f1e8; padding:2px 6px; border-radius:10px; font-weight:600; letter-spacing:.3px; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5); pointer-events:none; user-select:none}
-</style>
+  </style>
 </head>
 <body>
   <div id="app">
@@ -114,6 +118,7 @@
       <button id="menuMoon">Moon Phases</button>
       <button id="menuScore">Hunt Score</button>
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
+      <button id="menuCompass">Compass</button>
       <button id="menuWaypoints">Waypoints</button>
       <button id="menuTrack">Track</button>
       <button id="menuRadar">Radar</button>
@@ -161,10 +166,39 @@
         </div>
         <div style="display:flex; gap:8px; margin-bottom:10px">
           <button class="btn" id="wpAddCenter">Add at Map Center</button>
-          <button class="btn" id="wpAddGPS">Add from GPS</button>
+          <button class="btn" id="wpAddGPS">Add from Camera/GPS</button>
         </div>
         <input id="wpSearch" type="search" placeholder="Search by name or type" />
         <div class="wp-list" id="wpList"></div>
+      </div>
+    </div>
+
+    <!-- Waypoint details (notes + photo) -->
+    <div class="sheet" id="wpDetailSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Waypoint Details</h4>
+      <div class="content">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
+          <input id="wpDetName" type="text" placeholder="Name" />
+          <select id="wpDetType">
+            <option value="stand">Tree Stand</option>
+            <option value="feeder">Feeder</option>
+            <option value="camera">Trail Camera</option>
+            <option value="scrape">Scrape</option>
+            <option value="rub">Rub</option>
+            <option value="water">Water Source</option>
+          </select>
+        </div>
+        <textarea id="wpDetNotes" placeholder="Notes (sign, access, direction, pressure, etc.)"></textarea>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:10px">
+          <button class="btn" id="wpPickPhoto">Add/Replace Photo</button>
+          <input type="file" id="wpPhotoInput" accept="image/*;capture=camera" style="display:none" />
+          <span class="tag" id="wpPhotoInfo">No photo</span>
+        </div>
+        <div id="wpPhotoPreview" style="margin-top:10px"></div>
+        <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end">
+          <button class="btn" id="wpDetSave">Save</button>
+        </div>
       </div>
     </div>
 
@@ -226,9 +260,7 @@
     <div class="sheet" id="moonSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Moon Phases</h4>
-      <div class="content" id="moonContent">
-        <!-- Filled by JS: current phase + next 7 days -->
-      </div>
+      <div class="content" id="moonContent"></div>
     </div>
 
     <!-- Hunt score sheet -->
@@ -245,6 +277,30 @@
         <div class="option"><span>Refresh data</span><button class="btn" id="scoreRefresh">Update</button></div>
         <div class="score-list" id="scoreList"></div>
         <p class="tag">Score blends wind, temp, precip, light, and moon. Higher is better; dusk/dawn often peak. Use with local knowledge.</p>
+      </div>
+    </div>
+
+    <!-- Compass sheet -->
+    <div class="sheet" id="compassSheet" aria-hidden="true">
+      <div class="grab"></div>
+      <h4>Compass & Bearing</h4>
+      <div class="content">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
+          <button class="btn" id="compEnable">Enable Compass</button>
+          <span class="tag" id="compHeadingText">Heading: --</span>
+        </div>
+        <div class="option"><span>Anchor</span>
+          <div>
+            <label style="margin-right:10px"><input type="radio" name="compAnchor" value="gps" checked> GPS</label>
+            <label><input type="radio" name="compAnchor" value="center"> Map center</label>
+          </div>
+        </div>
+        <div class="option"><span>Guide to</span>
+          <select id="compTarget"></select>
+        </div>
+        <div class="row"><span>Distance</span><strong id="compDist" class="tag">--</strong></div>
+        <div class="row"><span>Bearing</span><strong id="compBear" class="tag">--</strong></div>
+        <p class="tag">Tip: In Waypoints, tap <b>Guide</b> on any item to set the target here.</p>
       </div>
     </div>
 
@@ -271,7 +327,7 @@
     const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:true } });
     map.addControl(drawControl);
 
-    const STORAGE_DRAW = 'bhh_drawings_v5';
+    const STORAGE_DRAW = 'bhh_drawings_v6';
 
     function featureTypeFromLayer(l){
       if(l instanceof L.Circle) return 'circle';
@@ -332,7 +388,6 @@
     map.on(L.Draw.Event.CREATED, e=>{
       const layer = e.layer;
       const type = e.layerType || featureTypeFromLayer(layer);
-      // name prompt
       const suggested = defaultShapeName(type);
       const nm = prompt(`Name this ${type}:`, suggested);
       layer._bhhName = (nm===null || nm.trim()==='') ? suggested : nm.trim();
@@ -398,10 +453,10 @@
     function relabelPolyline(layer){ labelPolylineSegments(layer); }
 
     /*******************
-     * MARKERS (WAYPOINTS)
+     * MARKERS (WAYPOINTS) + PHOTO NOTES
      *******************/
     const markersLayer = L.featureGroup().addTo(map);
-    const STORAGE_MARK = 'bhh_markers_v3';
+    const STORAGE_MARK = 'bhh_markers_v4';
     const IS_MOBILE = matchMedia('(max-width:640px)').matches;
     const ICON_SZ = IS_MOBILE ? 28 : 32;
     const FONT_SZ = IS_MOBILE ? 16 : 18;
@@ -429,12 +484,19 @@
     function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
     function defaultName(type){ const base = markerTypes[type]?.label || 'Marker'; let n = 1; markersLayer.eachLayer(m=>{ if(m.options.type===type) n++; }); return `${base} ${n}`; }
 
-    function addMarker(latlng, type, name, id){
+    function markerPopupHTML(m){
+      const cfg = markerTypes[m.options.type] || {label:'Marker'};
+      const img = m.options.photo ? `<div style=\"margin-top:6px\"><img src=\"${m.options.photo}\" alt=\"photo\" style=\"max-width:160px;border-radius:8px;border:1px solid #203325\"/></div>` : '';
+      const notes = m.options.notes ? `<div class=\"tag\" style=\"margin-top:6px\">${m.options.notes.replace(/</g,'&lt;')}</div>` : '';
+      return `<b>${m.options.name}</b><div class=\"tag\">${cfg.label}</div>${img}${notes}<div style=\"margin-top:8px\"><button class=\"del\">Delete</button></div>`;
+    }
+
+    function addMarker(latlng, type, name, id, notes, photo){
       const cfg = markerTypes[type] || {label:'Marker', emoji:'📍', icon:makeIcon('#555','📍')};
       const markerId = id || uid();
       const markerName = name || defaultName(type);
-      const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type, id: markerId, name: markerName });
-      const setPopup = () => m.bindPopup(`<b>${m.options.name}</b><div class=\"tag\">${cfg.label}</div><br><button class=\"del\">Delete</button>`, {autoPan:false});
+      const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type, id: markerId, name: markerName, notes: notes||'', photo: photo||'' });
+      const setPopup = () => m.bindPopup(markerPopupHTML(m), {autoPan:false});
       setPopup();
       m.on('dragend', saveMarkers);
       m.on('click', () => { if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); refreshWaypointsUI(); } });
@@ -444,15 +506,15 @@
       return m;
     }
 
-    function serializeMarkers(){ const list=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); list.push({id:m.options.id, name:m.options.name, type:m.options.type||'marker', lat, lng}); }); return list; }
-    function deserializeMarkers(list){ markersLayer.clearLayers(); (list||[]).forEach(m=> addMarker([m.lat,m.lng], m.type, m.name, m.id)); }
+    function serializeMarkers(){ const list=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); list.push({id:m.options.id, name:m.options.name, type:m.options.type||'marker', lat, lng, notes:m.options.notes||'', photo:m.options.photo||''}); }); return list; }
+    function deserializeMarkers(list){ markersLayer.clearLayers(); (list||[]).forEach(m=> addMarker([m.lat,m.lng], m.type, m.name, m.id, m.notes, m.photo)); }
     function saveMarkers(){ localStorage.setItem(STORAGE_MARK, JSON.stringify(serializeMarkers())); }
     ;(function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
 
     map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); refreshWaypointsUI(); });
 
     /*******************
-     * WAYPOINTS & SHAPES LIST UI
+     * WAYPOINTS & SHAPES LIST UI + EDIT/PHOTO + GUIDE
      *******************/
     const wpList = document.getElementById('wpList');
     const wpSearch = document.getElementById('wpSearch');
@@ -502,8 +564,10 @@
           <div class="emoji">${emojiFor(w)}</div>
           <div class="name"><input type="text" value="${(w.name||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"/></div>
           <div class="actions"><button class="btn fly">Fly</button></div>
+          ${w.kind==='wp' ? '<div class="actions"><button class="btn guide">Guide</button></div><div class="actions"><button class="btn edit">Edit</button></div>' : '<div></div><div></div>'}
           <div class="actions"><button class="btn danger del">Delete</button></div>
         </div>`).join('') || '<p class="tag" style="margin-top:8px">No items yet.</p>';
+      rebuildCompassTargets();
     }
 
     wpList.addEventListener('click', (e)=>{
@@ -519,16 +583,92 @@
         else { removeSegLabels(obj.layer); removeTotalLabel(obj.layer); drawnItems.removeLayer(obj.layer); saveDraw(); }
         refreshWaypointsUI();
       }
+      if(e.target.classList.contains('edit') && obj.kind==='wp'){
+        openWaypointDetail(obj.layer);
+      }
+      if(e.target.classList.contains('guide') && obj.kind==='wp'){
+        setGuideTarget(obj.layer.options.id);
+        openSheet('compass');
+      }
     });
 
     wpList.addEventListener('input', (e)=>{
       const item = e.target.closest('.item'); if(!item) return; const idx = parseInt(item.dataset.idx,10); const items = allItems(); const obj = items[idx]; if(!obj) return;
       if(e.target.type==='text'){
         const val = e.target.value;
-        if(obj.kind==='wp'){ obj.layer.options.name = val; const cfg = markerTypes[obj.layer.options.type] || {label:'Marker'}; obj.layer.bindPopup(`<b>${obj.layer.options.name}</b><div class=\"tag\">${cfg.label}</div><br><button class=\"del\">Delete</button>`); saveMarkers(); }
+        if(obj.kind==='wp'){ obj.layer.options.name = val; obj.layer.bindPopup(markerPopupHTML(obj.layer)); saveMarkers(); }
         else { obj.layer._bhhName = val; saveDraw(); }
       }
     });
+
+    // Waypoint detail sheet logic
+    let editingWP = null;
+    const wpDetSheet = document.getElementById('wpDetailSheet');
+    const wpDetName = document.getElementById('wpDetName');
+    const wpDetType = document.getElementById('wpDetType');
+    const wpDetNotes = document.getElementById('wpDetNotes');
+    const wpPhotoInput = document.getElementById('wpPhotoInput');
+    const wpPhotoInfo = document.getElementById('wpPhotoInfo');
+    const wpPhotoPreview = document.getElementById('wpPhotoPreview');
+
+    document.getElementById('wpPickPhoto').onclick = ()=> wpPhotoInput.click();
+
+    wpPhotoInput.addEventListener('change', async (e)=>{
+      const file = e.target.files && e.target.files[0]; if(!file || !editingWP) return;
+      try{
+        const dataUrl = await readAndCompressImage(file, 1280, 0.82);
+        editingWP.options.photo = dataUrl;
+        wpPhotoInfo.textContent = `${Math.round(dataUrl.length/1024)} KB`;
+        wpPhotoPreview.innerHTML = `<img src="${dataUrl}" alt="photo" style="max-width:100%;border-radius:10px;border:1px solid #203325"/>`;
+        saveMarkers();
+        editingWP.bindPopup(markerPopupHTML(editingWP));
+      } catch(err){ alert('Photo failed: '+err); }
+      e.target.value='';
+    });
+
+    document.getElementById('wpDetSave').onclick = ()=>{
+      if(!editingWP) return;
+      editingWP.options.name = wpDetName.value || editingWP.options.name;
+      editingWP.options.type = wpDetType.value;
+      editingWP.options.notes = wpDetNotes.value || '';
+      // swap icon if type changed
+      const cfg = markerTypes[editingWP.options.type] || {icon: makeIcon('#555','📍')};
+      editingWP.setIcon(cfg.icon);
+      editingWP.bindPopup(markerPopupHTML(editingWP));
+      saveMarkers(); refreshWaypointsUI(); closeSheets();
+    };
+
+    function openWaypointDetail(marker){
+      editingWP = marker;
+      wpDetName.value = marker.options.name || '';
+      wpDetType.value = marker.options.type || 'stand';
+      wpDetNotes.value = marker.options.notes || '';
+      if(marker.options.photo){
+        wpPhotoInfo.textContent = `${Math.round(marker.options.photo.length/1024)} KB`;
+        wpPhotoPreview.innerHTML = `<img src="${marker.options.photo}" alt="photo" style="max-width:100%;border-radius:10px;border:1px solid #203325"/>`;
+      } else { wpPhotoInfo.textContent='No photo'; wpPhotoPreview.innerHTML=''; }
+      openSheet('wpDetail');
+    }
+
+    function readAndCompressImage(file, maxDim=1280, quality=0.82){
+      return new Promise((resolve, reject)=>{
+        const img = new Image();
+        img.onload = ()=>{
+          let {width:w, height:h} = img;
+          const scale = Math.min(1, maxDim/Math.max(w,h));
+          const cw = Math.round(w*scale), ch = Math.round(h*scale);
+          const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+          const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, cw, ch);
+          const url = c.toDataURL('image/jpeg', quality);
+          if(url.length/1024 > 1500){ // ~1.5MB guard for localStorage
+            return reject('Image too large after compression; try a smaller image.');
+          }
+          resolve(url);
+        };
+        img.onerror = reject;
+        const fr = new FileReader(); fr.onload = ()=>{ img.src = fr.result; }; fr.onerror = reject; fr.readAsDataURL(file);
+      });
+    }
 
     /*******************
      * TRACK RECORDER   *
@@ -576,7 +716,7 @@
         await fetchWindAt(lastGPS.lat, lastGPS.lng);
       } catch(_) {
         const c = map.getCenter();
-        await fetchWindAt(c.lat, c.lng).catch(()=>{ windText.textContent='Wind: n/a'; });
+        await fetchWindAt(c.lat, c.lng).catch(()=>{ windText.textContent='Wind: --'; });
       }
     }
 
@@ -587,7 +727,6 @@
     const coneScale = document.getElementById('coneScale');
     const coneAnchorRadios = Array.from(document.querySelectorAll('input[name="coneAnchor"]'));
 
-    // Restore settings
     (function restoreConeSettings(){
       coneToggle.checked = localStorage.getItem('cone_vis')==='1';
       coneWidth.value = localStorage.getItem('cone_w') || '60';
@@ -619,7 +758,6 @@
       const anchorMode = (coneAnchorRadios.find(r=>r.checked)?.value) || 'gps';
       const origin = (anchorMode==='gps' && lastGPS) ? lastGPS : map.getCenter();
 
-      // Build sector polygon
       const pts = [L.latLng(origin.lat, origin.lng)];
       for(let a=-half; a<=half; a+= Math.max(5, width/8)){
         pts.push(destPoint(origin.lat, origin.lng, toDegWind+a, length));
@@ -629,27 +767,22 @@
       if(!map.hasLayer(scentConeLayer)) scentConeLayer.addTo(map);
     }
 
-    // Persist changes
     function persistCone(){ localStorage.setItem('cone_vis', coneToggle.checked?'1':'0'); localStorage.setItem('cone_w', coneWidth.value); localStorage.setItem('cone_s', coneScale.value); const anch = (coneAnchorRadios.find(r=>r.checked)||{}).value||'gps'; localStorage.setItem('cone_a', anch); }
     coneToggle.onchange = ()=>{ persistCone(); updateScentCone(); };
     coneWidth.oninput = ()=>{ persistCone(); updateScentCone(); };
     coneScale.oninput = ()=>{ persistCone(); updateScentCone(); };
     coneAnchorRadios.forEach(r=> r.addEventListener('change', ()=>{ persistCone(); updateScentCone(); }));
 
-    // Wind button: open sheet + refresh
     const btnMoon = document.getElementById('menuMoon');
     const btnScore = document.getElementById('menuScore');
     btnWind.onclick = ()=>{ openSheet('wind'); refreshWind(); };
     windRefreshBtn.onclick = ()=> refreshWind();
 
-    // Keep scent cone current
     map.on('moveend', ()=>{ const anch = localStorage.getItem('cone_a')||'gps'; if(anch==='center') updateScentCone(); });
-
-    // Initial wind fetch + periodic
     refreshWind(); setInterval(refreshWind, 15*60*1000);
 
     /*******************
-     * OHIO PUBLIC HUNTING (Local file first, then ODNR)
+     * OHIO PUBLIC HUNTING
      *******************/
     const ohioPublic = L.geoJSON(null, {
       style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
@@ -673,62 +806,24 @@
     loadOhioPublic();
 
     /*******************
-     * OHIO COUNTIES (outline + always-on labels)
+     * OHIO COUNTIES + LABELS
      *******************/
     const ohioCounties = L.geoJSON(null, {
       style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
       onEachFeature: (feat, layer) => {
         const name = (feat.properties && (feat.properties.County_Name || feat.properties.COUNTY_NAME)) || 'County';
-        // Keep hover thickness
         layer.on('mouseover', ()=> layer.setStyle({ weight:2 }));
         layer.on('mouseout',  ()=> layer.setStyle({ weight:1 }));
-        // Store name for labeling
         layer._countyName = String(name);
       }
     });
 
     const countyLabels = L.layerGroup();
-
     function labelFontForZoom(z){ if(z>=11) return 14; if(z>=9) return 12; if(z>=7) return 10; return 0; }
-    function refreshCountyLabels(){
-      const fs = labelFontForZoom(map.getZoom());
-      countyLabels.eachLayer(m => {
-        const el = m.getElement();
-        if(!el) return;
-        if(fs===0){ el.style.display='none'; }
-        else { el.style.display='block'; el.style.fontSize = fs+'px'; }
-      });
-    }
-
-    function buildCountyLabels(){
-      countyLabels.clearLayers();
-      ohioCounties.eachLayer(layer => {
-        try{
-          const center = layer.getBounds().getCenter();
-          const name = layer._countyName || 'County';
-          const lbl = L.marker(center, {
-            interactive:false,
-            pane:'tooltipPane',
-            icon: L.divIcon({ className:'county-label', html: name })
-          });
-          countyLabels.addLayer(lbl);
-        }catch(_){/* ignore */}
-      });
-      refreshCountyLabels();
-      if(map.hasLayer(ohioCounties) && !map.hasLayer(countyLabels)) countyLabels.addTo(map);
-    }
-
-    async function loadOhioCounties(){
-      try{
-        const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson';
-        const r = await fetch(url);
-        const j = await r.json();
-        ohioCounties.addData(j);
-        buildCountyLabels();
-      }catch(e){ console.warn('Counties layer fetch failed', e); }
-    }
+    function refreshCountyLabels(){ const fs = labelFontForZoom(map.getZoom()); countyLabels.eachLayer(m => { const el = m.getElement(); if(!el) return; if(fs===0){ el.style.display='none'; } else { el.style.display='block'; el.style.fontSize = fs+'px'; } }); }
+    function buildCountyLabels(){ countyLabels.clearLayers(); ohioCounties.eachLayer(layer => { try{ const center = layer.getBounds().getCenter(); const name = layer._countyName || 'County'; const lbl = L.marker(center, { interactive:false, pane:'tooltipPane', icon: L.divIcon({ className:'county-label', html: name }) }); countyLabels.addLayer(lbl);}catch(_){ } }); refreshCountyLabels(); if(map.hasLayer(ohioCounties) && !map.hasLayer(countyLabels)) countyLabels.addTo(map); }
+    async function loadOhioCounties(){ try{ const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson'; const r = await fetch(url); const j = await r.json(); ohioCounties.addData(j); buildCountyLabels(); }catch(e){ console.warn('Counties layer fetch failed', e); } }
     loadOhioCounties();
-    map.on('zoomend', refreshCountyLabels);
 
     /*******************
      * RADAR LAYERS     *
@@ -758,16 +853,19 @@
     const btnImport = document.getElementById('btnImport');
     const btnDelete = document.getElementById('btnDeleteMode');
     const fileInput = document.getElementById('fileImport');
+    const btnCompass = document.getElementById('menuCompass');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet') };
-    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } }
+    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet'), compass: document.getElementById('compassSheet'), wpDetail: document.getElementById('wpDetailSheet') };
+    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); } }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
     // Make entire .option row clickable (toggle inner input)
     document.querySelectorAll('.sheet .option').forEach(opt=>{
-      opt.addEventListener('click', ()=>{
+      opt.addEventListener('click', (ev)=>{
+        // don't toggle when clicking inside a select
+        if(ev.target.tagName==='SELECT') return;
         const input = opt.querySelector('input'); if(!input) return;
         if(input.type==='radio'){ input.checked = true; input.dispatchEvent(new Event('change', {bubbles:true})); }
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
@@ -787,30 +885,13 @@
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){
-      ovlOhio.checked = map.hasLayer(ohioPublic);
-      ovlCounties.checked = map.hasLayer(ohioCounties);
-      ovlDraw.checked = map.hasLayer(drawnItems);
-      ovlMarks.checked = map.hasLayer(markersLayer);
-      ovlTrack.checked = map.hasLayer(trackLayer);
-    }
-
+    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
-    ovlCounties.onchange = ()=> {
-      if(ovlCounties.checked){
-        ohioCounties.addTo(map);
-        countyLabels.addTo(map);
-        refreshCountyLabels();
-      } else {
-        map.removeLayer(ohioCounties);
-        map.removeLayer(countyLabels);
-      }
-    };
+    ovlCounties.onchange = ()=> { if(ovlCounties.checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); } else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); } };
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
-    // Keep labels in sync when toggled via the Layers control
     map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
     map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
 
@@ -820,6 +901,7 @@
     btnScore.onclick = ()=> openSheet('score');
     btnWaypoints.onclick = ()=> openSheet('waypoints');
     btnTrack.onclick = ()=> openSheet('track');
+    btnCompass.onclick = ()=> openSheet('compass');
 
     // Radar button toggles visibility quickly, then opens sheet
     const radarToggle = document.getElementById('radarToggle');
@@ -883,49 +965,10 @@
     function updateSun(){ const c = map.getCenter(); const now = new Date(); const t = SunCalc.getTimes(now, c.lat, c.lng); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; document.getElementById('pSunrise').textContent = fmt(t.sunrise); document.getElementById('pSunset').textContent  = fmt(t.sunset); const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0); document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`; }
     updateSun(); map.on('moveend', updateSun);
 
-    function phaseName(phase){
-      // SunCalc phase: 0 new → 0.25 first quarter → 0.5 full → 0.75 last quarter → 1 new
-      const p = (phase + 1) % 1;
-      if(p < 0.03 || p > 0.97) return 'New Moon';
-      if(p < 0.22) return 'Waxing Crescent';
-      if(p < 0.28) return 'First Quarter';
-      if(p < 0.47) return 'Waxing Gibbous';
-      if(p < 0.53) return 'Full Moon';
-      if(p < 0.72) return 'Waning Gibbous';
-      if(p < 0.78) return 'Last Quarter';
-      return 'Waning Crescent';
-    }
-    function phaseEmoji(phase){
-      const p=(phase+1)%1;
-      if(p < 0.03 || p > 0.97) return '🌑';
-      if(p < 0.22) return '🌒';
-      if(p < 0.28) return '🌓';
-      if(p < 0.47) return '🌔';
-      if(p < 0.53) return '🌕';
-      if(p < 0.72) return '🌖';
-      if(p < 0.78) return '🌗';
-      return '🌘';
-    }
+    function phaseName(phase){ const p = (phase + 1) % 1; if(p < 0.03 || p > 0.97) return 'New Moon'; if(p < 0.22) return 'Waxing Crescent'; if(p < 0.28) return 'First Quarter'; if(p < 0.47) return 'Waxing Gibbous'; if(p < 0.53) return 'Full Moon'; if(p < 0.72) return 'Waning Gibbous'; if(p < 0.78) return 'Last Quarter'; return 'Waning Crescent'; }
+    function phaseEmoji(phase){ const p=(phase+1)%1; if(p < 0.03 || p > 0.97) return '🌑'; if(p < 0.22) return '🌒'; if(p < 0.28) return '🌓'; if(p < 0.47) return '🌔'; if(p < 0.53) return '🌕'; if(p < 0.72) return '🌖'; if(p < 0.78) return '🌗'; return '🌘'; }
 
-    function renderMoon(){
-      const c = map.getCenter();
-      const now = new Date();
-      const illum = SunCalc.getMoonIllumination(now);
-      const mt = SunCalc.getMoonTimes(now, c.lat, c.lng, true);
-      const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
-      const pct = Math.round(illum.fraction*100);
-      let html = `<div class="row"><span>Today</span><strong class="tag">${phaseEmoji(illum.phase)} ${phaseName(illum.phase)} · ${pct}%</strong></div>`+
-                 `<div class="row"><span>Moonrise</span><strong class="tag">${fmt(mt.rise)}</strong></div>`+
-                 `<div class="row"><span>Moonset</span><strong class="tag">${fmt(mt.set)}</strong></div>`+
-                 `<p class="tag" style="margin-top:6px">Next 7 days</p>`;
-      for(let i=1;i<=7;i++){
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
-        const im = SunCalc.getMoonIllumination(d);
-        const tt = SunCalc.getMoonTimes(d, c.lat, c.lng, true);
-        html += `<div class="row"><span>${d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</span><strong class="tag">${phaseEmoji(im.phase)} ${Math.round(im.fraction*100)}% · ${fmt(tt.rise)} / ${fmt(tt.set)}</strong></div>`;
-      }
-      document.getElementById('moonContent').innerHTML = html;
-    }
+    function renderMoon(){ const c = map.getCenter(); const now = new Date(); const illum = SunCalc.getMoonIllumination(now); const mt = SunCalc.getMoonTimes(now, c.lat, c.lng, true); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; const pct = Math.round(illum.fraction*100); let html = `<div class="row"><span>Today</span><strong class="tag">${phaseEmoji(illum.phase)} ${phaseName(illum.phase)} · ${pct}%</strong></div>`+`<div class="row"><span>Moonrise</span><strong class="tag">${fmt(mt.rise)}</strong></div>`+`<div class="row"><span>Moonset</span><strong class="tag">${fmt(mt.set)}</strong></div>`+`<p class="tag" style="margin-top:6px">Next 7 days</p>`; for(let i=1;i<=7;i++){ const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i); const im = SunCalc.getMoonIllumination(d); const tt = SunCalc.getMoonTimes(d, c.lat, c.lng, true); html += `<div class="row"><span>${d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</span><strong class="tag">${phaseEmoji(im.phase)} ${Math.round(im.fraction*100)}% · ${fmt(tt.rise)} / ${fmt(tt.set)}</strong></div>`; } document.getElementById('moonContent').innerHTML = html; }
 
     /*******************
      * HUNT SCORE       *
@@ -937,103 +980,129 @@
     function gauss(x, mu, sigma){ const z=(x-mu)/sigma; return Math.exp(-0.5*z*z); }
     function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
 
-    async function fetchForecast(lat,lng){
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`;
-      const r = await fetch(url); if(!r.ok) throw new Error('forecast fetch failed'); return r.json();
-    }
+    async function fetchForecast(lat,lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('forecast fetch failed'); return r.json(); }
 
-    function buildSunWindows(daily){
-      const windows = {}; // dateStr -> {sr, ss}
-      for(let i=0;i<daily.time.length;i++){
-        windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) };
-      }
-      return windows;
-    }
+    function buildSunWindows(daily){ const windows = {}; for(let i=0;i<daily.time.length;i++){ windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) }; } return windows; }
 
-    function lunarBoost(date, lat, lng){
-      // small bonus if moon is low during predawn/dusk on new-ish moon, or overhead mid-day on full-ish moon
-      const ill = SunCalc.getMoonIllumination(date);
-      const pos = SunCalc.getMoonPosition(date, lat, lng);
-      const frac = ill.fraction; // 0..1
-      const alt = pos.altitude;  // radians
-      let boost = 0;
-      if(frac < 0.3){ // near new — better at dawn/dusk when moon is low
-        boost += clamp((0.3 - frac)/0.3, 0, 1) * clamp((0.2 - Math.abs(alt))/0.2, 0, 1) * 12;
-      } else if(frac > 0.7){ // near full — mid-day overhead can see a small bump
-        boost += clamp((frac - 0.7)/0.3, 0, 1) * clamp((alt - 0.4)/0.6, 0, 1) * 8;
-      }
-      return boost; // up to ~12
-    }
+    function lunarBoost(date, lat, lng){ const ill = SunCalc.getMoonIllumination(date); const pos = SunCalc.getMoonPosition(date, lat, lng); const frac = ill.fraction; const alt = pos.altitude; let boost = 0; if(frac < 0.3){ boost += clamp((0.3 - frac)/0.3, 0, 1) * clamp((0.2 - Math.abs(alt))/0.2, 0, 1) * 12; } else if(frac > 0.7){ boost += clamp((frac - 0.7)/0.3, 0, 1) * clamp((alt - 0.4)/0.6, 0, 1) * 8; } return boost; }
 
-    async function computeHuntScore(){
-      scoreList.innerHTML = '<p class="tag">Loading forecast…</p>';
-      let anchor = map.getCenter();
-      const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps';
-      if(which==='gps'){
-        try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){}
-      }
+    async function computeHuntScore(){ scoreList.innerHTML = '<p class="tag">Loading forecast…</p>'; let anchor = map.getCenter(); const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps'; if(which==='gps'){ try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){} }
       let data; try{ data = await fetchForecast(anchor.lat, anchor.lng); } catch(e){ scoreList.innerHTML = '<p class="tag">Forecast unavailable.</p>'; return; }
       const hourly = data.hourly || {}; const times = (hourly.time||[]).map(t=> new Date(t));
       const ws = hourly.wind_speed_10m || []; const tp = hourly.temperature_2m || []; const pr = hourly.precipitation_probability || []; const cc = hourly.cloud_cover || []; const sp = hourly.surface_pressure || [];
       const sun = buildSunWindows(data.daily || {time:[], sunrise:[], sunset:[]});
 
-      // compute day medians for temperature baseline by date
-      const byDay = {};
-      times.forEach((d,i)=>{ const k=d.toISOString().slice(0,10); (byDay[k]||(byDay[k]={temps:[]})).temps.push(tp[i]); });
+      const byDay = {}; times.forEach((d,i)=>{ const k=d.toISOString().slice(0,10); (byDay[k]||(byDay[k]={temps:[]})).temps.push(tp[i]); });
       const medByDay = {}; Object.keys(byDay).forEach(k=>{ const arr = byDay[k].temps.slice().sort((a,b)=>a-b); const m = arr[Math.floor(arr.length/2)]||arr[0]||0; medByDay[k]=m; });
 
       const rows = [];
       for(let i=0;i<times.length;i++){
         const d = times[i]; const dateKey=d.toISOString().slice(0,10);
-        // Light factor: peaks at sunrise/sunset (±90 min)
-        const dayWin = sun[dateKey];
-        let light = 0.2; // base
-        if(dayWin){
-          const minsFrom = (a)=> Math.abs((d - a)/60000);
-          light = Math.max( gauss(minsFrom(dayWin.sr), 0, 65), gauss(minsFrom(dayWin.ss), 0, 65) );
-        }
+        let light = 0.2; const dayWin = sun[dateKey]; if(dayWin){ const minsFrom = (a)=> Math.abs((d - a)/60000); light = Math.max( gauss(minsFrom(dayWin.sr), 0, 65), gauss(minsFrom(dayWin.ss), 0, 65) ); }
         light = clamp(light, 0, 1);
-
-        // Wind factor: prefer 4–12 mph; too calm or >20 mph penalize
         const w = ws[i] ?? 0; const wind = Math.max( gauss(w, 8, 4), gauss(w, 10, 5) );
-
-        // Temp factor: better when cooler than the day's median
-        const t = tp[i] ?? 0; const med = medByDay[dateKey] ?? t; const temp = clamp( (med - t) / 12, -0.5, 1 ); // ~+1 when 12°F cooler
-
-        // Precip penalty if high probability
-        const p = pr[i] ?? 0; const precip = 1 - clamp((p-30)/70, 0, 1); // <30% fine; 100% → strong penalty
-
-        // Cloud cover slight positive near full moon at dawn; slight negative at day otherwise (keep tiny)
-        const cloud = 1 - (cc[i]||0)/300; // very small weight
-
-        // Lunar small boost
-        const lunar = lunarBoost(d, anchor.lat, anchor.lng) / 12; // normalize 0..1
-
-        // Combine with weights → 0..100
-        const score = clamp(
-          (light*0.38 + wind*0.22 + (temp+0.5)*0.16 + precip*0.18 + cloud*0.02 + lunar*0.04) * 100,
-          0, 100
-        );
+        const t = tp[i] ?? 0; const med = medByDay[dateKey] ?? t; const temp = clamp( (med - t) / 12, -0.5, 1 );
+        const p = pr[i] ?? 0; const precip = 1 - clamp((p-30)/70, 0, 1);
+        const cloud = 1 - (cc[i]||0)/300;
+        const lunar = lunarBoost(d, anchor.lat, anchor.lng) / 12;
+        const score = clamp( (light*0.38 + wind*0.22 + (temp+0.5)*0.16 + precip*0.18 + cloud*0.02 + lunar*0.04) * 100, 0, 100 );
         rows.push({ d, score: Math.round(score), wind:w, temp:t, precip: p });
       }
-
-      // Keep next 48h
       const now = new Date();
       const next48 = rows.filter(r=> r.d - now >= 0 && r.d - now <= 48*3600*1000);
       next48.sort((a,b)=> b.score - a.score);
-      const top = next48.slice(0, 16).sort((a,b)=> a.d - b.d); // show 16 best, chronological
-
-      scoreList.innerHTML = top.map(r=>{
-        const w = r.score; const bar = Math.round(w);
-        const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'});
-        return `<div class="score-item">
-          <div class="tag">${time}</div>
-          <div class="bar"><span style="width:${bar}%"></span></div>
-          <div class="tag" style="text-align:right">${w} / 100</div>
-        </div>`;
-      }).join('') || '<p class="tag">No forecast rows.</p>';
+      const top = next48.slice(0, 16).sort((a,b)=> a.d - b.d);
+      scoreList.innerHTML = top.map(r=>{ const w = r.score; const bar = Math.round(w); const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'}); return `<div class="score-item"> <div class="tag">${time}</div> <div class="bar"><span style="width:${bar}%"></span></div> <div class="tag" style="text-align:right">${w} / 100</div> </div>`; }).join('') || '<p class="tag">No forecast rows.</p>';
     }
     scoreRefreshBtn.onclick = ()=> computeHuntScore();
+
+    /*******************
+     * COMPASS + BEARING LINE
+     *******************/
+    const compSheet = document.getElementById('compassSheet');
+    const compEnable = document.getElementById('compEnable');
+    const compHeadingText = document.getElementById('compHeadingText');
+    const compTargetSel = document.getElementById('compTarget');
+    const compAnchorRadios = Array.from(document.querySelectorAll('input[name="compAnchor"]'));
+    const compDist = document.getElementById('compDist');
+    const compBear = document.getElementById('compBear');
+
+    let compassWatchId = null; // GPS for compass
+    let deviceHeading = null;  // degrees
+    let guideTargetId = localStorage.getItem('guide_target') || '';
+
+    const guideLine = L.polyline([], { color:'#fdae6b', weight:3, dashArray:'6,6' }).addTo(map);
+    const headingMarker = L.marker([0,0], { interactive:false, icon: L.divIcon({className:'', html:`<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid #fef08a; transform:rotate(0deg); filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))"></div>`}) });
+
+    function setHeadingMarker(latlng, heading){ headingMarker.setLatLng(latlng); const el = headingMarker.getElement(); if(el){ el.firstChild.style.transform = `rotate(${heading}deg)`; } if(!map.hasLayer(headingMarker)) headingMarker.addTo(map); }
+
+    function bearingDeg(a, b){ const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat)); const x = Math.cos(toRad(a.lat))*Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.cos(toRad(b.lng-a.lng)); return (toDeg(Math.atan2(y, x)) + 360) % 360; }
+
+    function rebuildCompassTargets(){
+      const wps = getWaypoints();
+      const opts = ['<option value="">(none)</option>'].concat(wps.map(w=> `<option value="${w.id}">${(w.name||'Unnamed')} — ${labelFor(w)}</option>`));
+      compTargetSel.innerHTML = opts.join('');
+      if(guideTargetId){ compTargetSel.value = guideTargetId; }
+    }
+
+    function setGuideTarget(id){ guideTargetId = id || ''; localStorage.setItem('guide_target', guideTargetId); rebuildCompassTargets(); updateGuideLine(); }
+    compTargetSel.addEventListener('change', ()=> setGuideTarget(compTargetSel.value));
+
+    function compOrigin(){ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='gps' && lastGPS){ return L.latLng(lastGPS.lat, lastGPS.lng); } return map.getCenter(); }
+
+    function updateGuideLine(){
+      const origin = compOrigin();
+      if(!guideTargetId){ guideLine.setLatLngs([]); compDist.textContent='--'; compBear.textContent='--'; return; }
+      let targetMarker = null; markersLayer.eachLayer(m=>{ if(m.options.id===guideTargetId) targetMarker = m; });
+      if(!targetMarker){ guideLine.setLatLngs([]); compDist.textContent='--'; compBear.textContent='--'; return; }
+      const target = targetMarker.getLatLng();
+      guideLine.setLatLngs([origin, target]);
+      const d = map.distance(origin, target);
+      compDist.textContent = fmtFeetMiles(d);
+      const brg = bearingDeg(origin, target);
+      const dirs = ['N','NE','E','SE','S','SW','W','NW']; const card = dirs[Math.round(brg/45)%8];
+      compBear.textContent = `${Math.round(brg)}° ${card}`;
+    }
+
+    function updateCompassReadout(){
+      const h = deviceHeading; if(h==null){ compHeadingText.textContent = 'Heading: --'; } else { const dirs = ['N','NE','E','SE','S','SW','W','NW']; const card = dirs[Math.round(h/45)%8]; compHeadingText.textContent = `Heading: ${Math.round(h)}° ${card}`; }
+      updateGuideLine();
+    }
+
+    function onDeviceOrientation(e){
+      let hdg = null;
+      if(typeof e.webkitCompassHeading === 'number'){ hdg = e.webkitCompassHeading; }
+      else if(typeof e.alpha === 'number'){ hdg = (360 - e.alpha) % 360; }
+      if(hdg!=null){ deviceHeading = hdg; updateCompassReadout(); }
+    }
+
+    async function enableCompass(){
+      try{
+        if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+          const resp = await DeviceOrientationEvent.requestPermission(); if(resp !== 'granted') throw new Error('Permission denied');
+        }
+        window.addEventListener('deviceorientation', onDeviceOrientation, true);
+      }catch(e){ alert('Compass permission denied or unsupported. You can still use the bearing line.'); }
+      // GPS watch for origin
+      try{
+        if(!compassWatchId && navigator.geolocation){ compassWatchId = navigator.geolocation.watchPosition(pos=>{ lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setHeadingMarker(lastGPS, deviceHeading||0); updateGuideLine(); }, err=>{}, {enableHighAccuracy:true, maximumAge:4000}); }
+      }catch(_){ }
+    }
+
+    compEnable.onclick = ()=> enableCompass();
+    compAnchorRadios.forEach(r=> r.addEventListener('change', ()=> updateGuideLine()));
+
+    // When map moves and anchor is center, refresh bearing
+    map.on('moveend', ()=>{ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
+
+  /*******************
+   * PWA: register service worker (expects /sw.js on your server)
+   *******************/
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('/sw.js').catch(()=>{/* ignore */});
+    });
+  }
 
   </script>
 </body>
