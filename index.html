@@ -42,11 +42,26 @@
     .row:last-child{border-bottom:0}
     .tag{font-size:11px;color:var(--subtle)}
 
-    /* Bottom main menu */
-    .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;align-items:center;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;flex-wrap:wrap}
-    .main-menu button{flex:1;max-width:140px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .wind-btn{display:flex;align-items:center;gap:8px;max-width:260px}
-    #windText{font-size:12px}
+    /* Bottom main menu — UPDATED for readability */
+    .main-menu{
+      position:fixed;left:0;right:0;bottom:0;z-index:1200;
+      display:flex;gap:10px;justify-content:space-around;align-items:center;
+      padding:10px 12px calc(12px + var(--safe-bottom));
+      background:linear-gradient(180deg,rgba(11,26,15,.08),rgba(11,26,15,.88));
+      backdrop-filter:blur(8px);
+      border-top:1px solid #203325;
+      flex-wrap:wrap;
+    }
+    .main-menu button{
+      flex:1;max-width:160px;min-width:140px;
+      padding:12px 14px;
+      border:1px solid #25432b;border-radius:12px;
+      background:#14271a;color:var(--text);
+      font-size:15px;line-height:1.2;
+      cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
+    .wind-btn{display:flex;align-items:center;gap:8px;max-width:280px;min-width:200px}
+    #windText{font-size:13px;white-space:nowrap}
     .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
 
     /* Sheets (backdrop + panel) */
@@ -83,15 +98,21 @@
     /* County labels */
     .county-label{position:absolute; transform:translate(-50%,-50%); background:rgba(16,31,20,.75); border:1px solid #203325; color:#e7f1e8; padding:2px 6px; border-radius:10px; font-weight:600; letter-spacing:.3px; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5); pointer-events:none; user-select:none}
 
-    /* --- Mobile tweaks --- */
+    /* --- Mobile tweaks (UPDATED) --- */
     @media (max-width:640px){
       .panel{left:8px;top:72px}
-      /* Make bottom bar a horizontal scroller so button text stays visible */
-      .main-menu{gap:10px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(12px + var(--safe-bottom))}
+      /* keep labels readable: horizontal scroll instead of wrapping */
+      .main-menu{
+        gap:10px;justify-content:flex-start;flex-wrap:nowrap;
+        overflow-x:auto;-webkit-overflow-scrolling:touch;
+      }
       .main-menu::-webkit-scrollbar{height:6px}
-      .main-menu button{flex:0 0 auto;min-width:132px;max-width:none;font-size:14px;padding:10px 12px}
-      .wind-btn{min-width:200px}
-      #windText{font-size:12.5px}
+      .main-menu button{
+        flex:0 0 auto;min-width:150px;max-width:none;
+        font-size:15px;padding:12px 14px;
+      }
+      .wind-btn{min-width:220px;max-width:none}
+      #windText{font-size:13.5px}
     }
 
     @supports (height: 100svh){ #map{height:100svh} }
@@ -971,7 +992,7 @@
     function renderMoon(){ const c = map.getCenter(); const now = new Date(); const illum = SunCalc.getMoonIllumination(now); const mt = SunCalc.getMoonTimes(now, c.lat, c.lng, true); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; const pct = Math.round(illum.fraction*100); let html = `<div class="row"><span>Today</span><strong class="tag">${phaseEmoji(illum.phase)} ${phaseName(illum.phase)} · ${pct}%</strong></div>`+`<div class="row"><span>Moonrise</span><strong class="tag">${fmt(mt.rise)}</strong></div>`+`<div class="row"><span>Moonset</span><strong class="tag">${fmt(mt.set)}</strong></div>`+`<p class="tag" style="margin-top:6px">Next 7 days</p>`; for(let i=1;i<=7;i++){ const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i); const im = SunCalc.getMoonIllumination(d); const tt = SunCalc.getMoonTimes(d, c.lat, c.lng, true); html += `<div class="row"><span>${d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</span><strong class="tag">${phaseEmoji(im.phase)} ${Math.round(im.fraction*100)}% · ${fmt(tt.rise)} / ${fmt(tt.set)}</strong></div>`; } document.getElementById('moonContent').innerHTML = html; }
 
     /*******************
-     * HUNT SCORE       *
+     * HUNT SCORE  — UPDATED TUNING
      *******************/
     const scoreList = document.getElementById('scoreList');
     const scoreRefreshBtn = document.getElementById('scoreRefresh');
@@ -982,37 +1003,153 @@
 
     async function fetchForecast(lat,lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('forecast fetch failed'); return r.json(); }
 
-    function buildSunWindows(daily){ const windows = {}; for(let i=0;i<daily.time.length;i++){ windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) }; } return windows; }
-
     function lunarBoost(date, lat, lng){ const ill = SunCalc.getMoonIllumination(date); const pos = SunCalc.getMoonPosition(date, lat, lng); const frac = ill.fraction; const alt = pos.altitude; let boost = 0; if(frac < 0.3){ boost += clamp((0.3 - frac)/0.3, 0, 1) * clamp((0.2 - Math.abs(alt))/0.2, 0, 1) * 12; } else if(frac > 0.7){ boost += clamp((frac - 0.7)/0.3, 0, 1) * clamp((alt - 0.4)/0.6, 0, 1) * 8; } return boost; }
 
-    async function computeHuntScore(){ scoreList.innerHTML = '<p class="tag">Loading forecast…</p>'; let anchor = map.getCenter(); const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps'; if(which==='gps'){ try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){} }
-      let data; try{ data = await fetchForecast(anchor.lat, anchor.lng); } catch(e){ scoreList.innerHTML = '<p class="tag">Forecast unavailable.</p>'; return; }
-      const hourly = data.hourly || {}; const times = (hourly.time||[]).map(t=> new Date(t));
-      const ws = hourly.wind_speed_10m || []; const tp = hourly.temperature_2m || []; const pr = hourly.precipitation_probability || []; const cc = hourly.cloud_cover || []; const sp = hourly.surface_pressure || [];
-      const sun = buildSunWindows(data.daily || {time:[], sunrise:[], sunset:[]});
+    // helper: dome-shaped preference (best near `center`, falls off by `width`)
+    function dome(x, center, width){
+      const z = (x - center) / (width || 1);
+      return Math.exp(-0.5 * z * z); // 0..1
+    }
 
-      const byDay = {}; times.forEach((d,i)=>{ const k=d.toISOString().slice(0,10); (byDay[k]||(byDay[k]={temps:[]})).temps.push(tp[i]); });
-      const medByDay = {}; Object.keys(byDay).forEach(k=>{ const arr = byDay[k].temps.slice().sort((a,b)=>a-b); const m = arr[Math.floor(arr.length/2)]||arr[0]||0; medByDay[k]=m; });
+    async function computeHuntScore(){
+      scoreList.innerHTML = '<p class="tag">Loading forecast…</p>';
+
+      // Anchor choice (GPS or map center)
+      let anchor = map.getCenter();
+      const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps';
+      if(which==='gps'){
+        try{
+          const pos = await new Promise((res,rej)=>{
+            if(!navigator.geolocation) return rej('no geo');
+            navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy:true, timeout:6000});
+          });
+          anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }catch(_){}
+      }
+
+      // Fetch forecast
+      let data;
+      try{
+        data = await fetchForecast(anchor.lat, anchor.lng);
+      }catch(e){
+        scoreList.innerHTML = '<p class="tag">Forecast unavailable.</p>';
+        return;
+      }
+
+      const hourly = data.hourly || {};
+      const times = (hourly.time||[]).map(t=> new Date(t));
+      const ws = hourly.wind_speed_10m || [];
+      const tp = hourly.temperature_2m || [];
+      const pr = hourly.precipitation_probability || [];
+      const cc = hourly.cloud_cover || [];
+      const sp = hourly.surface_pressure || []; // hPa
+
+      const sun = (function buildSunWindows(daily){
+        const windows = {};
+        if(!daily || !daily.time) return windows;
+        for(let i=0;i<daily.time.length;i++){
+          windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) };
+        }
+        return windows;
+      })(data.daily || {time:[], sunrise:[], sunset:[]});
+
+      // Daily medians for temperature “cooler than typical day” preference
+      const byDay = {};
+      times.forEach((d,i)=>{
+        const k = d.toISOString().slice(0,10);
+        (byDay[k]||(byDay[k]=[])).push(tp[i]);
+      });
+      const medByDay = {};
+      Object.keys(byDay).forEach(k=>{
+        const arr = byDay[k].slice().sort((a,b)=>a-b);
+        medByDay[k] = arr.length ? arr[Math.floor(arr.length/2)] : 0;
+      });
+
+      function lightBoost(d){
+        const k = d.toISOString().slice(0,10);
+        const w = sun[k]; if(!w) return 0.15;
+        const g = mins => Math.exp(-(mins*mins)/(2*65*65)); // ~65 min spread
+        const minsFrom = t => Math.abs((d - t)/60000);
+        return Math.max(g(minsFrom(w.sr)), g(minsFrom(w.ss)));
+      }
+
+      function windBoost(w){
+        // prefer moderate wind: ~8–12 mph best (two bumps to widen sweet spot)
+        return Math.max(gauss(w, 8, 3.5), gauss(w, 12, 4.5));
+      }
+
+      function tempBoost(t, med){
+        // cooler than daily median is good; map to 0..1
+        const raw = clamp((med - t) / 12, -0.6, 1.0);
+        return (raw + 0.6) / 1.6;
+      }
+
+      function precipBoost(p){
+        // prefer light chances (20–50%)
+        return dome(p || 0, 35, 18); // center 35%, width ~18
+      }
+
+      function pressureBoost(i){
+        // reward rising pressure over ~3 hours, slight penalty for sharp drops
+        if(!sp || sp.length<4 || i<3) return 0.5; // neutral
+        const delta = sp[i] - sp[i-3]; // positive = rising
+        // +2 hPa rise → ~1.0, -2 hPa drop → ~0.0
+        return clamp((delta + 1.5) / 3.5, 0, 1);
+      }
+
+      function lunarBoost01(d, lat, lng){
+        // reuse lunarBoost but bound to [0..1]
+        const L = lunarBoost(d, lat, lng);
+        return clamp(L / 12, 0, 1);
+      }
 
       const rows = [];
       for(let i=0;i<times.length;i++){
-        const d = times[i]; const dateKey=d.toISOString().slice(0,10);
-        let light = 0.2; const dayWin = sun[dateKey]; if(dayWin){ const minsFrom = (a)=> Math.abs((d - a)/60000); light = Math.max( gauss(minsFrom(dayWin.sr), 0, 65), gauss(minsFrom(dayWin.ss), 0, 65) ); }
-        light = clamp(light, 0, 1);
-        const w = ws[i] ?? 0; const wind = Math.max( gauss(w, 8, 4), gauss(w, 10, 5) );
-        const t = tp[i] ?? 0; const med = medByDay[dateKey] ?? t; const temp = clamp( (med - t) / 12, -0.5, 1 );
-        const p = pr[i] ?? 0; const precip = 1 - clamp((p-30)/70, 0, 1);
-        const cloud = 1 - (cc[i]||0)/300;
-        const lunar = lunarBoost(d, anchor.lat, anchor.lng) / 12;
-        const score = clamp( (light*0.38 + wind*0.22 + (temp+0.5)*0.16 + precip*0.18 + cloud*0.02 + lunar*0.04) * 100, 0, 100 );
-        rows.push({ d, score: Math.round(score), wind:w, temp:t, precip: p });
+        const d = times[i];
+        const dateKey = d.toISOString().slice(0,10);
+        const w = ws[i] ?? 0;
+        const t = tp[i] ?? 0;
+        const p = pr[i] ?? 0;
+
+        const light = lightBoost(d);
+        const wind  = windBoost(w);
+        const temp  = tempBoost(t, medByDay[dateKey] ?? t);
+        const precip= precipBoost(p);
+        const press = pressureBoost(i);
+        const lunar = lunarBoost01(d, anchor.lat, anchor.lng);
+
+        // weights sum to 1.00
+        const weighted =
+            light * 0.32 +
+            wind  * 0.22 +
+            temp  * 0.18 +
+            precip* 0.16 +
+            press * 0.06 +
+            lunar * 0.06;
+
+        // Cap extremes softly: map 0..1 → 10..95 and round
+        const score = Math.round(10 + 85 * clamp(weighted, 0, 1));
+
+        rows.push({ d, score, wind:w, temp:t, precip:p });
       }
+
       const now = new Date();
-      const next48 = rows.filter(r=> r.d - now >= 0 && r.d - now <= 48*3600*1000);
+      const next48 = rows.filter(r => r.d - now >= 0 && r.d - now <= 48*3600*1000);
+
+      // Show the top ~16 in chronological order for the next 48h
       next48.sort((a,b)=> b.score - a.score);
       const top = next48.slice(0, 16).sort((a,b)=> a.d - b.d);
-      scoreList.innerHTML = top.map(r=>{ const w = r.score; const bar = Math.round(w); const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'}); return `<div class="score-item"> <div class="tag">${time}</div> <div class="bar"><span style="width:${bar}%"></span></div> <div class="tag" style="text-align:right">${w} / 100</div> </div>`; }).join('') || '<p class="tag">No forecast rows.</p>';
+
+      scoreList.innerHTML = top.map(r=>{
+        const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'});
+        const bar = r.score;
+        return `
+          <div class="score-item">
+            <div class="tag">${time}</div>
+            <div class="bar"><span style="width:${bar}%"></span></div>
+            <div class="tag" style="text-align:right">${bar} / 100</div>
+          </div>`;
+      }).join('') || '<p class="tag">No forecast rows.</p>';
     }
     scoreRefreshBtn.onclick = ()=> computeHuntScore();
 
@@ -1036,6 +1173,8 @@
 
     function setHeadingMarker(latlng, heading){ headingMarker.setLatLng(latlng); const el = headingMarker.getElement(); if(el){ el.firstChild.style.transform = `rotate(${heading}deg)`; } if(!map.hasLayer(headingMarker)) headingMarker.addTo(map); }
 
+    function toRad(x){ return x*Math.PI/180; }
+    function toDeg(x){ return x*180/Math.PI; }
     function bearingDeg(a, b){ const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat)); const x = Math.cos(toRad(a.lat))*Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.cos(toRad(b.lng-a.lng)); return (toDeg(Math.atan2(y, x)) + 360) % 360; }
 
     function rebuildCompassTargets(){
