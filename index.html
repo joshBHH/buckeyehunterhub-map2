@@ -20,30 +20,25 @@
 
   <style>
     :root{
-      --bg:#0b1a0f;        /* deep forest */
-      --panel:#101f14;     /* card */
-      --muted:#1a2b1f;
-      --accent:#6dbc5d;    /* green */
-      --text:#e7f1e8;
-      --subtle:#a3b7a6;
-      --danger:#f87171;
-      --shadow:0 12px 30px rgba(0,0,0,.35);
+      --bg:#0b1a0f; --panel:#101f14; --muted:#1a2b1f; --accent:#6dbc5d;
+      --text:#e7f1e8; --subtle:#a3b7a6; --danger:#f87171; --shadow:0 12px 30px rgba(0,0,0,.35);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --logo-size: 128px;  /* desktop/tablet logo height */
     }
-
     html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Roboto,Arial,sans-serif}
-    /* Full screen map on mobile */
     #map{position:fixed;inset:0;height:100dvh}
     #map.placing{cursor: crosshair}
 
-    /* Top-right logo (non-interactive overlay) */
-    .map-logo{position:fixed;right:12px;top:12px;z-index:1300;pointer-events:none}
-    .map-logo img{
-      height:var(--logo-size); width:auto; display:block;
-      border-radius:10px; background:rgba(16,31,20,.6); padding:6px;
-      box-shadow:0 6px 18px rgba(0,0,0,.35);
-    }
+    /* Search box (top-right) */
+    .search-wrap{position:fixed;right:12px;top:12px;z-index:1300;min-width:250px;max-width:420px}
+    .search-box{display:flex;gap:8px;align-items:center;background:rgba(16,31,20,.9);border:1px solid #203325;border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+    .search-box input{flex:1;background:transparent;border:0;color:var(--text);outline:none;font-size:14px}
+    .search-btn{background:#14271a;border:1px solid #25432b;border-radius:10px;color:var(--text);padding:6px 10px;cursor:pointer}
+    .search-results{margin-top:6px;background:rgba(16,31,20,.96);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);max-height:45vh;overflow:auto;display:none}
+    .search-results.show{display:block}
+    .sr-item{padding:10px 12px;cursor:pointer;border-top:1px solid #1d3323}
+    .sr-item:first-child{border-top:0}
+    .sr-title{font-size:14px}
+    .sr-sub{font-size:12px;color:var(--subtle)}
 
     /* Info panel (smaller + draggable) */
     .panel{position:fixed;left:12px;top:80px;z-index:1000;background:var(--panel);border:1px solid #203325;border-radius:12px;box-shadow:var(--shadow);padding:8px 10px;min-width:180px;max-width:260px}
@@ -59,7 +54,7 @@
     #windText{font-size:12px}
     .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #e7f1e8;display:inline-block;transform:rotate(0deg)}
 
-    /* Sheets (backdrop + panel) */
+    /* Sheets */
     .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1199;display:none}
     .backdrop.show{display:block}
     .sheet{position:fixed;left:0;right:0;bottom:0;z-index:1200;background:var(--panel);border-top:1px solid #203325;border-radius:16px 16px 0 0;box-shadow:var(--shadow);transform:translateY(110%);transition:transform .25s ease}
@@ -74,14 +69,14 @@
     .btn{padding:8px 12px;border:1px solid #25432b;border-radius:10px;background:#14271a;color:var(--text);cursor:pointer}
     .btn.danger{border-color:#5a2222;background:#331616}
 
-    /* Waypoints list */
+    /* Lists */
     .wp-list{max-height:38vh;overflow:auto;margin-top:6px}
     .item{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1d3323}
     .emoji{font-size:18px}
     .name{min-width:0}
     .actions button{margin-left:8px}
 
-    /* Segment / total distance labels */
+    /* Polyline labels */
     .seglabel{background:rgba(16,31,20,.92);border:1px solid #203325;border-radius:10px;padding:2px 6px;font-size:11px;color:var(--text);box-shadow:var(--shadow)}
 
     /* Hunt score list */
@@ -93,31 +88,19 @@
     /* County labels */
     .county-label{position:absolute; transform:translate(-50%,-50%); background:rgba(16,31,20,.75); border:1px solid #203325; color:#e7f1e8; padding:2px 6px; border-radius:10px; font-weight:600; letter-spacing:.3px; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5); pointer-events:none; user-select:none}
 
-    /* GPS shiny blue dot */
-    .pulse-dot{
-      width:16px;height:16px;border-radius:50%;
-      background:#3b82f6;border:3px solid #1d4ed8;
-      box-shadow:0 0 0 rgba(59,130,246,.5);
-      animation:pulse 2s infinite;
-    }
-    @keyframes pulse{
-      0%{box-shadow:0 0 0 0 rgba(59,130,246,.5)}
-      70%{box-shadow:0 0 0 16px rgba(59,130,246,0)}
-      100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}
-    }
+    /* Blue location dot */
+    .loc-dot{box-shadow:0 0 0 4px rgba(96,165,250,.35),0 0 18px rgba(59,130,246,.7)}
 
-    /* --- Mobile tweaks --- */
+    /* Mobile tweaks */
     @media (max-width:640px){
-      :root{ --logo-size: 96px; }
       .panel{left:8px;top:72px}
-      /* Make bottom bar a horizontal scroller so button text stays visible */
+      .search-wrap{left:8px;right:8px}
       .main-menu{gap:10px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(12px + var(--safe-bottom))}
       .main-menu::-webkit-scrollbar{height:6px}
       .main-menu button{flex:0 0 auto;min-width:132px;max-width:none;font-size:14px;padding:10px 12px}
       .wind-btn{min-width:200px}
       #windText{font-size:12.5px}
     }
-
     @supports (height: 100svh){ #map{height:100svh} }
   </style>
 </head>
@@ -125,13 +108,16 @@
   <div id="app">
     <div id="map"></div>
 
-    <!-- Top-right logo (update src if your filename/path differs) -->
-    <div class="map-logo" aria-label="Buckeye Hunter Hub">
-      <!-- Example path; change to your actual logo path -->
-      <img src="Icons/bhh-logo.png" alt="Buckeye Hunter Hub logo"/>
+    <!-- SEARCH -->
+    <div class="search-wrap">
+      <div class="search-box">
+        <input id="searchInput" type="search" placeholder="Search city, address, coordinates…" autocomplete="off" />
+        <button id="searchBtn" class="search-btn">Search</button>
+      </div>
+      <div id="searchResults" class="search-results"></div>
     </div>
 
-    <!-- Field Info panel (hidden by default; draggable) -->
+    <!-- Field Info panel -->
     <section class="panel" id="infoPanel" style="display:none;">
       <h3 id="infoHandle">📋 Field Info</h3>
       <div class="row"><span>Sunrise</span><strong id="pSunrise" class="tag">--:--</strong></div>
@@ -160,10 +146,10 @@
       <input type="file" id="fileImport" accept=".json,.geojson,application/json,application/geo+json" style="display:none" />
     </nav>
 
-    <!-- Shared backdrop for sheets -->
+    <!-- Backdrop -->
     <div class="backdrop" id="sheetBackdrop"></div>
 
-    <!-- Basemap & Overlays sheet -->
+    <!-- Basemap & Overlays -->
     <div class="sheet" id="basemapSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Basemap</h4>
@@ -172,13 +158,15 @@
       <div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
       <h4 style="margin-top:10px">Overlays</h4>
       <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
+      <div class="option"><span>Ohio Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
+      <div class="option"><span>Ohio Cities</span><input id="ovlCities" type="checkbox"></div>
       <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
       <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
       <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
     </div>
 
-    <!-- Waypoints + Shapes manager sheet -->
+    <!-- Waypoints & Shapes -->
     <div class="sheet" id="waypointsSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Waypoints & Shapes</h4>
@@ -203,7 +191,7 @@
       </div>
     </div>
 
-    <!-- Waypoint details (notes + photo) -->
+    <!-- Waypoint details -->
     <div class="sheet" id="wpDetailSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Waypoint Details</h4>
@@ -232,7 +220,7 @@
       </div>
     </div>
 
-    <!-- Track recorder sheet -->
+    <!-- Track recorder -->
     <div class="sheet" id="trackSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Track Recorder</h4>
@@ -250,7 +238,7 @@
       </div>
     </div>
 
-    <!-- Radar sheet -->
+    <!-- Radar -->
     <div class="sheet" id="radarSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Weather Radar</h4>
@@ -267,7 +255,7 @@
       </div>
     </div>
 
-    <!-- Wind & Scent cone sheet -->
+    <!-- Wind -->
     <div class="sheet" id="windSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Wind & Scent Cone</h4>
@@ -286,14 +274,14 @@
       </div>
     </div>
 
-    <!-- Moon phases sheet -->
+    <!-- Moon -->
     <div class="sheet" id="moonSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Moon Phases</h4>
       <div class="content" id="moonContent"></div>
     </div>
 
-    <!-- Hunt score sheet -->
+    <!-- Hunt score -->
     <div class="sheet" id="scoreSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Hunt Score (next 48h)</h4>
@@ -306,11 +294,11 @@
         </div>
         <div class="option"><span>Refresh data</span><button class="btn" id="scoreRefresh">Update</button></div>
         <div class="score-list" id="scoreList"></div>
-        <p class="tag">Score blends wind, temp, precip, light, and moon. Higher is better; dusk/dawn often peak. Use with local knowledge.</p>
+        <p class="tag">Score blends wind, temp, precip, light, and moon. Use with local knowledge.</p>
       </div>
     </div>
 
-    <!-- Compass sheet -->
+    <!-- Compass -->
     <div class="sheet" id="compassSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Compass & Bearing</h4>
@@ -333,32 +321,45 @@
         <p class="tag">Tip: In Waypoints, tap <b>Guide</b> on any item to set the target here.</p>
       </div>
     </div>
-
   </div>
 
   <script>
-    /*******************
-     * MAP & BASELAYERS *
-     *******************/
-    const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
-    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
-    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    /* ========== STORAGE MIGRATION SHIM ========== */
+    const LEGACY_KEYS = {
+      DRAW: ['bhh_drawings_v5','bhh_drawings_v4','bhh_drawings_v3','bhh_drawings','drawings'],
+      MARK: ['bhh_markers_v3','bhh_markers_v2','bhh_markers','markers'],
+      TRK:  ['bhh_track','track']
+    };
+    function readRawWithFallback(currentKey, legacyList){
+      const candidates = [currentKey, ...(legacyList||[])];
+      for(const k of candidates){
+        try{
+          const v = localStorage.getItem(k);
+          if(v && v!=='null' && v!=='{}' && v!=='[]'){
+            if(k!==currentKey) localStorage.setItem(currentKey, v);
+            return v;
+          }
+        }catch(_){}
+      }
+      return null;
+    }
 
+    /* ========== MAP & BASELAYERS ========== */
+    const map = L.map('map').setView([40.4173, -82.9071], 7);
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3',{attribution:'&copy; MapTiler & OpenStreetMap contributors'}).addTo(map);
+    const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3',{attribution:'&copy; MapTiler'});
+    const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3',{attribution:'&copy; MapTiler & OpenStreetMap contributors'});
     const baseByKey = { basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
     function setBasemap(key){ Object.values(baseByKey).forEach(l=> map.removeLayer(l)); baseByKey[key].addTo(map); localStorage.setItem(STORAGE_BASE, key); }
     (function restoreBasemap(){ const k = localStorage.getItem(STORAGE_BASE); if(k && baseByKey[k]) setBasemap(k); })();
 
-    /*******************
-     * DRAWING LAYERS  *
-     *******************/
+    /* ========== DRAWING LAYERS ========== */
     const drawnItems = new L.FeatureGroup().addTo(map);
     const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:true } });
     map.addControl(drawControl);
 
     const STORAGE_DRAW = 'bhh_drawings_v6';
-
     function featureTypeFromLayer(l){
       if(l instanceof L.Circle) return 'circle';
       if(l instanceof L.Rectangle) return 'rectangle';
@@ -366,13 +367,11 @@
       if(l instanceof L.Polyline && !(l instanceof L.Polygon)) return 'polyline';
       return 'shape';
     }
-
     function defaultShapeName(type){
       const base = {polyline:'Line', polygon:'Area', rectangle:'Plot', circle:'Circle', shape:'Shape'}[type] || 'Shape';
       let n=1; drawnItems.eachLayer(l=>{ if(featureTypeFromLayer(l)===type) n++; });
       return `${base} ${n}`;
     }
-
     function saveDraw(){
       const geojson = { type:'FeatureCollection', features:[] };
       const circles = [];
@@ -387,13 +386,11 @@
           geojson.features.push(f);
         }
       });
-      const bundle = { geojson, circles };
-      localStorage.setItem(STORAGE_DRAW, JSON.stringify(bundle));
+      localStorage.setItem(STORAGE_DRAW, JSON.stringify({ geojson, circles }));
     }
-
     function restoreDraw(){
-      const raw = localStorage.getItem(STORAGE_DRAW);
-      if(!raw){ return; }
+      const raw = readRawWithFallback(STORAGE_DRAW, LEGACY_KEYS.DRAW);
+      if(!raw) return;
       try{
         const data = JSON.parse(raw);
         if(data && data.geojson){
@@ -417,73 +414,42 @@
     map.on(L.Draw.Event.CREATED, e=>{
       const layer = e.layer;
       const type = e.layerType || featureTypeFromLayer(layer);
-      const suggested = defaultShapeName(type);
-      const nm = prompt(`Name this ${type}:`, suggested);
-      layer._bhhName = (nm===null || nm.trim()==='') ? suggested : nm.trim();
+      const nm = prompt(`Name this ${type}:`, defaultShapeName(type));
+      layer._bhhName = (nm===null || nm.trim()==='') ? defaultShapeName(type) : nm.trim();
       drawnItems.addLayer(layer);
       if(type==='polyline') { labelPolylineSegments(layer); updatePolylineTotalLabel(layer); }
-      saveDraw();
-      refreshWaypointsUI();
+      saveDraw(); refreshWaypointsUI();
     });
     map.on(L.Draw.Event.EDITED, e=>{ e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); updatePolylineTotalLabel(l); } }); saveDraw(); refreshWaypointsUI(); });
     map.on(L.Draw.Event.DELETED, e=>{ e.layers.eachLayer(l=> { removeSegLabels(l); removeTotalLabel(l); }); saveDraw(); refreshWaypointsUI(); });
 
-    /*******************
-     * SEGMENT + TOTAL LABELS FOR POLYLINES
-     *******************/
+    /* Polyline labels */
     const segmentLabelsGroup = L.layerGroup().addTo(map);
-
-    function fmtFeetMiles(m){
-      const ft = m * 3.28084;
-      if(m >= 1609.344) return (m/1609.344).toFixed(2) + ' mi';
-      return Math.round(ft) + ' ft';
-    }
-
-    function removeSegLabels(layer){
-      if(layer._segLabels){ layer._segLabels.forEach(lbl=> segmentLabelsGroup.removeLayer(lbl)); layer._segLabels = null; }
-    }
+    function fmtFeetMiles(m){ const ft = m * 3.28084; return m >= 1609.344 ? (m/1609.344).toFixed(2)+' mi' : Math.round(ft)+' ft'; }
+    function removeSegLabels(layer){ if(layer._segLabels){ layer._segLabels.forEach(lbl=> segmentLabelsGroup.removeLayer(lbl)); layer._segLabels = null; } }
     function removeTotalLabel(layer){ if(layer._totalLabel){ segmentLabelsGroup.removeLayer(layer._totalLabel); layer._totalLabel=null; } }
-
     function labelPolylineSegments(layer){
       removeSegLabels(layer);
-      const latlngs = layer.getLatLngs();
-      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs; // simple polyline
-      const labels=[];
-      for(let i=1;i<pts.length;i++){
-        const a = pts[i-1], b = pts[i];
-        const d = map.distance(a, b);
-        const mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
-        const marker = L.marker(mid, { interactive:false, icon: L.divIcon({ className:'', html:`<div class="seglabel">${fmtFeetMiles(d)}</div>` }) });
-        marker.addTo(segmentLabelsGroup);
-        labels.push(marker);
+      const latlngs = layer.getLatLngs(); const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+      const labels=[]; for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i]; const d=map.distance(a,b); const mid=L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);
+        const marker = L.marker(mid, { interactive:false, icon: L.divIcon({className:'', html:`<div class="seglabel">${fmtFeetMiles(d)}</div>`})});
+        marker.addTo(segmentLabelsGroup); labels.push(marker);
       }
       layer._segLabels = labels;
     }
-
-    function polylineTotalDistance(layer){
-      const latlngs = layer.getLatLngs();
-      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-      let d=0; for(let i=1;i<pts.length;i++){ d += map.distance(pts[i-1], pts[i]); } return d;
-    }
-
+    function polylineTotalDistance(layer){ const latlngs = layer.getLatLngs(); const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs; let d=0; for(let i=1;i<pts.length;i++){ d += map.distance(pts[i-1], pts[i]); } return d; }
     function updatePolylineTotalLabel(layer){
       removeTotalLabel(layer);
-      const latlngs = layer.getLatLngs();
-      const pts = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-      if(pts.length<2) return;
-      const a = pts[pts.length-2], b = pts[pts.length-1];
-      const anchor = L.latLng((a.lat*0.3 + b.lat*0.7), (a.lng*0.3 + b.lng*0.7));
+      const pts = (Array.isArray(layer.getLatLngs()[0]) ? layer.getLatLngs()[0] : layer.getLatLngs());
+      if(pts.length<2) return; const a=pts[pts.length-2], b=pts[pts.length-1];
+      const anchor = L.latLng((a.lat*0.3+b.lat*0.7),(a.lng*0.3+b.lng*0.7));
       const total = fmtFeetMiles(polylineTotalDistance(layer));
-      const marker = L.marker(anchor, { interactive:false, icon: L.divIcon({ className:'', html:`<div class="seglabel"><b>Total:</b> ${total}</div>` }) });
-      marker.addTo(segmentLabelsGroup);
-      layer._totalLabel = marker;
+      const marker = L.marker(anchor, { interactive:false, icon: L.divIcon({className:'', html:`<div class="seglabel"><b>Total:</b> ${total}</div>`})});
+      marker.addTo(segmentLabelsGroup); layer._totalLabel = marker;
     }
-
     function relabelPolyline(layer){ labelPolylineSegments(layer); }
 
-    /*******************
-     * MARKERS (WAYPOINTS) + PHOTO NOTES
-     *******************/
+    /* ========== WAYPOINTS ========== */
     const markersLayer = L.featureGroup().addTo(map);
     const STORAGE_MARK = 'bhh_markers_v4';
     const IS_MOBILE = matchMedia('(max-width:640px)').matches;
@@ -491,13 +457,9 @@
     const FONT_SZ = IS_MOBILE ? 16 : 18;
 
     function makeIcon(bg,emoji){
-      return L.divIcon({
-        className:'',
-        html:`<div style="background:${bg};border:2px solid #333;border-radius:50%;width:${ICON_SZ}px;height:${ICON_SZ}px;display:flex;align-items:center;justify-content:center;font-size:${FONT_SZ}px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);">${emoji}</div>`,
-        iconSize:[ICON_SZ,ICON_SZ], iconAnchor:[ICON_SZ/2, ICON_SZ], popupAnchor:[0, -ICON_SZ*0.9]
-      });
+      return L.divIcon({className:'',html:`<div style="background:${bg};border:2px solid #333;border-radius:50%;width:${ICON_SZ}px;height:${ICON_SZ}px;display:flex;align-items:center;justify-content:center;font-size:${FONT_SZ}px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);">${emoji}</div>`,
+        iconSize:[ICON_SZ,ICON_SZ], iconAnchor:[ICON_SZ/2, ICON_SZ], popupAnchor:[0, -ICON_SZ*0.9]});
     }
-
     const markerTypes = {
       stand:{label:'Tree Stand', emoji:'🎯', icon:makeIcon('#2563eb','🎯')},
       feeder:{label:'Feeder', emoji:'🍽️', icon:makeIcon('#16a34a','🍽️')},
@@ -506,88 +468,47 @@
       rub:{label:'Rub', emoji:'🪵', icon:makeIcon('#b45309','🪵')},
       water:{label:'Water Source', emoji:'💧', icon:makeIcon('#0891b2','💧')}
     };
-
     let activeType=null; let deleteMode=false;
-    function setActiveType(type){ activeType=type; document.getElementById('map').classList.toggle('placing', !!type); }
-
     function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
     function defaultName(type){ const base = markerTypes[type]?.label || 'Marker'; let n = 1; markersLayer.eachLayer(m=>{ if(m.options.type===type) n++; }); return `${base} ${n}`; }
-
     function markerPopupHTML(m){
       const cfg = markerTypes[m.options.type] || {label:'Marker'};
-      const img = m.options.photo ? `<div style=\"margin-top:6px\"><img src=\"${m.options.photo}\" alt=\"photo\" style=\"max-width:160px;border-radius:8px;border:1px solid #203325\"/></div>` : '';
-      const notes = m.options.notes ? `<div class=\"tag\" style=\"margin-top:6px\">${m.options.notes.replace(/</g,'&lt;')}</div>` : '';
-      return `<b>${m.options.name}</b><div class=\"tag\">${cfg.label}</div>${img}${notes}<div style=\"margin-top:8px\"><button class=\"del\">Delete</button></div>`;
+      const img = m.options.photo ? `<div style="margin-top:6px"><img src="${m.options.photo}" alt="photo" style="max-width:160px;border-radius:8px;border:1px solid #203325"/></div>` : '';
+      const notes = m.options.notes ? `<div class="tag" style="margin-top:6px">${m.options.notes.replace(/</g,'&lt;')}</div>` : '';
+      return `<b>${m.options.name}</b><div class="tag">${cfg.label}</div>${img}${notes}<div style="margin-top:8px"><button class="del">Delete</button></div>`;
     }
-
     function addMarker(latlng, type, name, id, notes, photo){
-      const cfg = markerTypes[type] || {label:'Marker', emoji:'📍', icon:makeIcon('#555','📍')};
-      const markerId = id || uid();
-      const markerName = name || defaultName(type);
+      const cfg = markerTypes[type] || {label:'Marker', icon:makeIcon('#555','📍')};
+      const markerId = id || uid(); const markerName = name || defaultName(type);
       const m = L.marker(latlng, { icon: cfg.icon, draggable:true, type, id: markerId, name: markerName, notes: notes||'', photo: photo||'' });
       const setPopup = () => m.bindPopup(markerPopupHTML(m), {autoPan:false});
       setPopup();
       m.on('dragend', saveMarkers);
       m.on('click', () => { if(deleteMode){ markersLayer.removeLayer(m); saveMarkers(); refreshWaypointsUI(); } });
       m.on('popupopen', (e)=>{ const btn = e.popup.getElement().querySelector('button.del'); if(btn) btn.addEventListener('click', ()=> { markersLayer.removeLayer(m); saveMarkers(); refreshWaypointsUI(); }); });
-      markersLayer.addLayer(m);
-      saveMarkers();
-      return m;
+      markersLayer.addLayer(m); saveMarkers(); return m;
     }
-
     function serializeMarkers(){ const list=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); list.push({id:m.options.id, name:m.options.name, type:m.options.type||'marker', lat, lng, notes:m.options.notes||'', photo:m.options.photo||''}); }); return list; }
     function deserializeMarkers(list){ markersLayer.clearLayers(); (list||[]).forEach(m=> addMarker([m.lat,m.lng], m.type, m.name, m.id, m.notes, m.photo)); }
     function saveMarkers(){ localStorage.setItem(STORAGE_MARK, JSON.stringify(serializeMarkers())); }
-    ;(function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
+    (function restoreMarkers(){ try{ const raw=readRawWithFallback(STORAGE_MARK, LEGACY_KEYS.MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
+    map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); activeType=null; document.getElementById('map').classList.toggle('placing', false); refreshWaypointsUI(); });
 
-    map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); refreshWaypointsUI(); });
-
-    /*******************
-     * WAYPOINTS & SHAPES LIST UI + EDIT/PHOTO + GUIDE
-     *******************/
+    /* Waypoints UI */
     const wpList = document.getElementById('wpList');
     const wpSearch = document.getElementById('wpSearch');
     const wpType = document.getElementById('wpType');
     const wpName = document.getElementById('wpName');
-
     document.getElementById('wpAddCenter').onclick = ()=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker(map.getCenter(), t, n); refreshWaypointsUI(); wpName.value=''; };
     document.getElementById('wpAddGPS').onclick = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker([pos.coords.latitude, pos.coords.longitude], t, n); refreshWaypointsUI(); wpName.value=''; }, err=> alert('Location error: '+err.message), {enableHighAccuracy:true, timeout:8000}); };
-
-    function gatherShapes(){
-      const arr=[];
-      drawnItems.eachLayer(l=>{
-        const type = featureTypeFromLayer(l);
-        let center = l.getBounds ? l.getBounds().getCenter() : (l.getLatLng ? l.getLatLng() : map.getCenter());
-        arr.push({ kind:'shape', type, name: l._bhhName || defaultShapeName(type), layer:l, center });
-      });
-      return arr;
-    }
-
-    function getWaypoints(){
-      const pts=[];
-      markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); pts.push({ kind:'wp', id:m.options.id, name:m.options.name, type:m.options.type, lat, lng, layer:m }); });
-      return pts;
-    }
-
-    function emojiFor(item){
-      if(item.kind==='shape'){
-        return ({polyline:'📏', polygon:'⬠', rectangle:'▭', circle:'◯'})[item.type] || '⬣';
-      }
-      return markerTypes[item.type]?.emoji || '📍';
-    }
-
-    function labelFor(item){
-      if(item.kind==='shape'){
-        return ({polyline:'Line', polygon:'Area', rectangle:'Plot', circle:'Circle'})[item.type] || 'Shape';
-      }
-      return markerTypes[item.type]?.label || 'Marker';
-    }
-
+    function gatherShapes(){ const arr=[]; drawnItems.eachLayer(l=>{ const type=featureTypeFromLayer(l); const center=l.getBounds? l.getBounds().getCenter() : (l.getLatLng? l.getLatLng() : map.getCenter()); arr.push({kind:'shape', type, name:l._bhhName||defaultShapeName(type), layer:l, center}); }); return arr; }
+    function getWaypoints(){ const pts=[]; markersLayer.eachLayer(m=>{ const {lat,lng}=m.getLatLng(); pts.push({kind:'wp', id:m.options.id, name:m.options.name, type:m.options.type, lat, lng, layer:m}); }); return pts; }
+    function emojiFor(item){ if(item.kind==='shape'){ return ({polyline:'📏', polygon:'⬠', rectangle:'▭', circle:'◯'})[item.type] || '⬣'; } return (markerTypes[item.type]?.emoji)||'📍'; }
+    function labelFor(item){ if(item.kind==='shape'){ return ({polyline:'Line', polygon:'Area', rectangle:'Plot', circle:'Circle'})[item.type] || 'Shape'; } return (markerTypes[item.type]?.label)||'Marker'; }
     function allItems(){ return [...getWaypoints(), ...gatherShapes()]; }
-
     function refreshWaypointsUI(){
-      const q = (wpSearch.value||'').toLowerCase();
-      const items = allItems().filter(w=> !q || (w.name && w.name.toLowerCase().includes(q)) || (labelFor(w).toLowerCase().includes(q)));
+      const q=(wpSearch.value||'').toLowerCase();
+      const items = allItems().filter(w=> !q || (w.name&&w.name.toLowerCase().includes(q)) || (labelFor(w).toLowerCase().includes(q)));
       wpList.innerHTML = items.map((w,i)=>`
         <div class="item" data-kind="${w.kind}" data-idx="${i}">
           <div class="emoji">${emojiFor(w)}</div>
@@ -598,7 +519,6 @@
         </div>`).join('') || '<p class="tag" style="margin-top:8px">No items yet.</p>';
       rebuildCompassTargets();
     }
-
     wpList.addEventListener('click', (e)=>{
       const item = e.target.closest('.item'); if(!item) return;
       const idx = parseInt(item.dataset.idx,10);
@@ -612,36 +532,23 @@
         else { removeSegLabels(obj.layer); removeTotalLabel(obj.layer); drawnItems.removeLayer(obj.layer); saveDraw(); }
         refreshWaypointsUI();
       }
-      if(e.target.classList.contains('edit') && obj.kind==='wp'){
-        openWaypointDetail(obj.layer);
-      }
-      if(e.target.classList.contains('guide') && obj.kind==='wp'){
-        setGuideTarget(obj.layer.options.id);
-        openSheet('compass');
-      }
+      if(e.target.classList.contains('edit') && obj.kind==='wp'){ openWaypointDetail(obj.layer); }
+      if(e.target.classList.contains('guide') && obj.kind==='wp'){ setGuideTarget(obj.layer.options.id); openSheet('compass'); }
     });
-
     wpList.addEventListener('input', (e)=>{
-      const item = e.target.closest('.item'); if(!item) return; const idx = parseInt(item.dataset.idx,10); const items = allItems(); const obj = items[idx]; if(!obj) return;
-      if(e.target.type==='text'){
-        const val = e.target.value;
-        if(obj.kind==='wp'){ obj.layer.options.name = val; obj.layer.bindPopup(markerPopupHTML(obj.layer)); saveMarkers(); }
-        else { obj.layer._bhhName = val; saveDraw(); }
-      }
+      const item = e.target.closest('.item'); if(!item) return; const idx = parseInt(item.dataset.idx,10); const obj = allItems()[idx]; if(!obj) return;
+      if(e.target.type==='text'){ const val=e.target.value; if(obj.kind==='wp'){ obj.layer.options.name=val; obj.layer.bindPopup(markerPopupHTML(obj.layer)); saveMarkers(); } else { obj.layer._bhhName=val; saveDraw(); } }
     });
 
-    // Waypoint detail sheet logic
-    let editingWP = null;
-    const wpDetSheet = document.getElementById('wpDetailSheet');
+    /* Waypoint detail sheet */
+    let editingWP=null;
     const wpDetName = document.getElementById('wpDetName');
     const wpDetType = document.getElementById('wpDetType');
     const wpDetNotes = document.getElementById('wpDetNotes');
     const wpPhotoInput = document.getElementById('wpPhotoInput');
     const wpPhotoInfo = document.getElementById('wpPhotoInfo');
     const wpPhotoPreview = document.getElementById('wpPhotoPreview');
-
     document.getElementById('wpPickPhoto').onclick = ()=> wpPhotoInput.click();
-
     wpPhotoInput.addEventListener('change', async (e)=>{
       const file = e.target.files && e.target.files[0]; if(!file || !editingWP) return;
       try{
@@ -654,19 +561,15 @@
       } catch(err){ alert('Photo failed: '+err); }
       e.target.value='';
     });
-
     document.getElementById('wpDetSave').onclick = ()=>{
       if(!editingWP) return;
       editingWP.options.name = wpDetName.value || editingWP.options.name;
       editingWP.options.type = wpDetType.value;
       editingWP.options.notes = wpDetNotes.value || '';
-      // swap icon if type changed
       const cfg = markerTypes[editingWP.options.type] || {icon: makeIcon('#555','📍')};
-      editingWP.setIcon(cfg.icon);
-      editingWP.bindPopup(markerPopupHTML(editingWP));
+      editingWP.setIcon(cfg.icon); editingWP.bindPopup(markerPopupHTML(editingWP));
       saveMarkers(); refreshWaypointsUI(); closeSheets();
     };
-
     function openWaypointDetail(marker){
       editingWP = marker;
       wpDetName.value = marker.options.name || '';
@@ -678,20 +581,16 @@
       } else { wpPhotoInfo.textContent='No photo'; wpPhotoPreview.innerHTML=''; }
       openSheet('wpDetail');
     }
-
     function readAndCompressImage(file, maxDim=1280, quality=0.82){
       return new Promise((resolve, reject)=>{
         const img = new Image();
         img.onload = ()=>{
-          let {width:w, height:h} = img;
-          const scale = Math.min(1, maxDim/Math.max(w,h));
-          const cw = Math.round(w*scale), ch = Math.round(h*scale);
+          const scale = Math.min(1, maxDim/Math.max(img.width,img.height));
+          const cw = Math.round(img.width*scale), ch = Math.round(img.height*scale);
           const c = document.createElement('canvas'); c.width = cw; c.height = ch;
           const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, cw, ch);
           const url = c.toDataURL('image/jpeg', quality);
-          if(url.length/1024 > 1500){ // ~1.5MB guard for localStorage
-            return reject('Image too large after compression; try a smaller image.');
-          }
+          if(url.length/1024 > 1500) return reject('Image too large after compression; try a smaller image.');
           resolve(url);
         };
         img.onerror = reject;
@@ -699,45 +598,31 @@
       });
     }
 
-    /*******************
-     * TRACK RECORDER   *
-     *******************/
+    /* ========== TRACK RECORDER ========== */
     const trackLayer = L.polyline([], { color:'#22d3ee', weight:4, opacity:0.9 }).addTo(map);
     const STORAGE_TRK = 'bhh_track_v1';
-    let trackPoints = []; // {lat,lng,t}
-    let watchId = null; let startTime = null; let lastPoint = null;
-
-    function loadTrack(){ try{ const raw=localStorage.getItem(STORAGE_TRK); if(raw){ trackPoints = JSON.parse(raw)||[]; trackLayer.setLatLngs(trackPoints.map(p=> [p.lat,p.lng])); } }catch{}; updateTrackStats(); }
+    let trackPoints = []; let watchId = null; let startTime = null; let lastPoint = null;
+    function loadTrack(){ try{ const raw=readRawWithFallback(STORAGE_TRK, LEGACY_KEYS.TRK); if(raw){ trackPoints=JSON.parse(raw)||[]; trackLayer.setLatLngs(trackPoints.map(p=> [p.lat,p.lng])); } }catch{} updateTrackStats(); }
     function saveTrack(){ localStorage.setItem(STORAGE_TRK, JSON.stringify(trackPoints)); updateTrackStats(); }
-
-    function appendPoint(lat,lng,t){ const pt = {lat,lng,t: t||Date.now()}; if(lastPoint){ const d = map.distance([lastPoint.lat,lastPoint.lng],[lat,lng]); if(d < 3) return; } trackPoints.push(pt); lastPoint = pt; trackLayer.addLatLng([lat,lng]); saveTrack(); }
-
+    function appendPoint(lat,lng,t){ const pt = {lat,lng,t: t||Date.now()}; if(lastPoint){ const d=map.distance([lastPoint.lat,lastPoint.lng],[lat,lng]); if(d<3) return; } trackPoints.push(pt); lastPoint=pt; trackLayer.addLatLng([lat,lng]); saveTrack(); }
     function trackDistance(){ let d=0; for(let i=1;i<trackPoints.length;i++){ d += map.distance([trackPoints[i-1].lat,trackPoints[i-1].lng],[trackPoints[i].lat,trackPoints[i].lng]); } return d; }
-    function updateTrackStats(){ const pts = trackPoints.length; const dist = trackDistance(); document.getElementById('trkPts').textContent = pts; const distText = dist>1609.344 ? (dist/1609.344).toFixed(2)+' mi' : Math.round(dist*3.28084)+' ft'; document.getElementById('trkDist').textContent = distText; const durMs = startTime ? (Date.now()-startTime) : (trackPoints.length? (trackPoints[trackPoints.length-1].t - trackPoints[0].t):0); const mm = Math.floor(durMs/60000), ss=(Math.floor(durMs/1000)%60).toString().padStart(2,'0'); document.getElementById('trkDur').textContent = `${mm}:${ss}`; document.getElementById('pTrkDist').textContent = distText; document.getElementById('pTrkDur').textContent = `${mm}:${ss}`; }
-
-    function startTrack(){ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } if(watchId) return; document.getElementById('trkStatus').textContent = 'Recording'; document.getElementById('trkStartStop').textContent = 'Stop'; startTime = Date.now(); watchId = navigator.geolocation.watchPosition(pos=>{ const {latitude, longitude} = pos.coords; appendPoint(latitude, longitude, Date.now()); if(document.getElementById('trkFollow').checked){ map.setView([latitude, longitude], Math.max(map.getZoom(), 16)); } }, err=>{ console.warn('track error', err); }, { enableHighAccuracy:true, maximumAge:5000 }); }
-    function stopTrack(){ if(!watchId) return; navigator.geolocation.clearWatch(watchId); watchId=null; document.getElementById('trkStatus').textContent = 'Stopped'; document.getElementById('trkStartStop').textContent = 'Start'; updateTrackStats(); }
+    function updateTrackStats(){ const pts=trackPoints.length; const dist=trackDistance(); document.getElementById('trkPts').textContent=pts; const distText=dist>1609.344 ? (dist/1609.344).toFixed(2)+' mi' : Math.round(dist*3.28084)+' ft'; document.getElementById('trkDist').textContent=distText; const durMs=startTime ? (Date.now()-startTime) : (trackPoints.length? (trackPoints[trackPoints.length-1].t - trackPoints[0].t):0); const mm=Math.floor(durMs/60000), ss=(Math.floor(durMs/1000)%60).toString().padStart(2,'0'); document.getElementById('trkDur').textContent=`${mm}:${ss}`; document.getElementById('pTrkDist').textContent=distText; document.getElementById('pTrkDur').textContent=`${mm}:${ss}`; }
+    function startTrack(){ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } if(watchId) return; document.getElementById('trkStatus').textContent='Recording'; document.getElementById('trkStartStop').textContent='Stop'; startTime=Date.now(); watchId = navigator.geolocation.watchPosition(pos=>{ const {latitude, longitude}=pos.coords; appendPoint(latitude, longitude, Date.now()); if(document.getElementById('trkFollow').checked){ map.setView([latitude, longitude], Math.max(map.getZoom(), 16)); } }, err=>{}, { enableHighAccuracy:true, maximumAge:5000 }); }
+    function stopTrack(){ if(!watchId) return; navigator.geolocation.clearWatch(watchId); watchId=null; document.getElementById('trkStatus').textContent='Stopped'; document.getElementById('trkStartStop').textContent='Start'; updateTrackStats(); }
     function clearTrack(){ stopTrack(); trackPoints=[]; lastPoint=null; trackLayer.setLatLngs([]); saveTrack(); }
-
-    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"BuckeyeHunterHub\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat=\"${p.lat}\" lon=\"${p.lng}\"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
-
+    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="BuckeyeHunterHub" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat="${p.lat}" lon="${p.lng}"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
     loadTrack();
 
-    /*******************
-     * WIND (live) + SCENT CONE
-     *******************/
+    /* ========== WIND & SCENT CONE ========== */
     const btnWind = document.getElementById('menuWind');
     const windText = document.getElementById('windText');
     const windArrow = document.getElementById('windArrow');
-
     let currentWind = { fromDeg: null, speed: 0 };
-    let lastGPS = null; // shared with GPS live dot & compass
+    let lastGPS = null;
 
     function degToCardinal(d){ const dirs = ['N','NE','E','SE','S','SW','W','NW']; return dirs[Math.round(d/45)%8]; }
     function updateWindUI(fromDeg, speed){ const toDeg = (fromDeg + 180) % 360; const from = degToCardinal(fromDeg); const to = degToCardinal(toDeg); windArrow.style.transform = `rotate(${toDeg}deg)`; windText.textContent = `Wind: ${from} → ${to}  ${Math.round(speed)} mph`; }
-
     async function fetchWindAt(lat, lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('wind fetch failed'); const j = await r.json(); const cur = j.current || j.current_weather || {}; const speed = cur.wind_speed_10m ?? cur.windspeed ?? 0; const dir = cur.wind_direction_10m ?? cur.winddirection ?? 0; currentWind = { fromDeg: dir, speed }; updateWindUI(dir, speed); updateScentCone(); }
-
     async function refreshWind(){
       try{
         const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); });
@@ -749,13 +634,12 @@
       }
     }
 
-    // Wind sheet controls
+    /* Scent cone controls */
     const windRefreshBtn = document.getElementById('windRefresh');
     const coneToggle = document.getElementById('coneToggle');
     const coneWidth = document.getElementById('coneWidth');
     const coneScale = document.getElementById('coneScale');
     const coneAnchorRadios = Array.from(document.querySelectorAll('input[name="coneAnchor"]'));
-
     (function restoreConeSettings(){
       coneToggle.checked = localStorage.getItem('cone_vis')==='1';
       coneWidth.value = localStorage.getItem('cone_w') || '60';
@@ -763,56 +647,43 @@
       const anch = localStorage.getItem('cone_a') || 'gps';
       const r = coneAnchorRadios.find(x=>x.value===anch); if(r) r.checked=true;
     })();
-
     let scentConeLayer = L.polygon([], { color:'#f59e0b', weight:2, fillColor:'#f59e0b', fillOpacity:0.2 });
-
-    function toRad(x){ return x*Math.PI/180; }
-    function toDeg(x){ return x*180/Math.PI; }
+    function toRad(x){ return x*Math.PI/180; } function toDeg(x){ return x*180/Math.PI; }
     function destPoint(lat,lng,bearingDeg,distM){
       const R=6378137; const br=toRad(bearingDeg); const lat1=toRad(lat), lon1=toRad(lng); const dr=distM/R;
       const lat2 = Math.asin(Math.sin(lat1)*Math.cos(dr) + Math.cos(lat1)*Math.sin(dr)*Math.cos(br));
       const lon2 = lon1 + Math.atan2(Math.sin(br)*Math.sin(dr)*Math.cos(lat1), Math.cos(dr)-Math.sin(lat1)*Math.sin(lat2));
       return L.latLng(toDeg(lat2), toDeg(lon2));
     }
-
     function updateScentCone(){
       if(!coneToggle.checked){ if(map.hasLayer(scentConeLayer)) map.removeLayer(scentConeLayer); return; }
       const wind = currentWind; if(wind.fromDeg==null){ return; }
       const toDegWind = (wind.fromDeg + 180) % 360;
       const width = parseFloat(coneWidth.value); const half = width/2;
       const scale = parseFloat(coneScale.value);
-      const speed = Math.max(1, wind.speed||1); // mph
-      const baseLen = 150 + speed*90; // meters
-      const length = baseLen * scale;
+      const speed = Math.max(1, wind.speed||1); const baseLen = 150 + speed*90; const length = baseLen * scale;
       const anchorMode = (coneAnchorRadios.find(r=>r.checked)?.value) || 'gps';
       const origin = (anchorMode==='gps' && lastGPS) ? lastGPS : map.getCenter();
 
       const pts = [L.latLng(origin.lat, origin.lng)];
-      for(let a=-half; a<=half; a+= Math.max(5, width/8)){
-        pts.push(destPoint(origin.lat, origin.lng, toDegWind+a, length));
-      }
+      for(let a=-half; a<=half; a+= Math.max(5, width/8)){ pts.push(destPoint(origin.lat, origin.lng, toDegWind+a, length)); }
       pts.push(L.latLng(origin.lat, origin.lng));
       scentConeLayer.setLatLngs([pts]);
       if(!map.hasLayer(scentConeLayer)) scentConeLayer.addTo(map);
     }
-
     function persistCone(){ localStorage.setItem('cone_vis', coneToggle.checked?'1':'0'); localStorage.setItem('cone_w', coneWidth.value); localStorage.setItem('cone_s', coneScale.value); const anch = (coneAnchorRadios.find(r=>r.checked)||{}).value||'gps'; localStorage.setItem('cone_a', anch); }
     coneToggle.onchange = ()=>{ persistCone(); updateScentCone(); };
     coneWidth.oninput = ()=>{ persistCone(); updateScentCone(); };
     coneScale.oninput = ()=>{ persistCone(); updateScentCone(); };
     coneAnchorRadios.forEach(r=> r.addEventListener('change', ()=>{ persistCone(); updateScentCone(); }));
-
     const btnMoon = document.getElementById('menuMoon');
     const btnScore = document.getElementById('menuScore');
     btnWind.onclick = ()=>{ openSheet('wind'); refreshWind(); };
     windRefreshBtn.onclick = ()=> refreshWind();
-
     map.on('moveend', ()=>{ const anch = localStorage.getItem('cone_a')||'gps'; if(anch==='center') updateScentCone(); });
     refreshWind(); setInterval(refreshWind, 15*60*1000);
 
-    /*******************
-     * OHIO PUBLIC HUNTING
-     *******************/
+    /* ========== OHIO PUBLIC HUNTING ========== */
     const ohioPublic = L.geoJSON(null, {
       style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
       onEachFeature:(feat, layer)=>{
@@ -821,22 +692,40 @@
         const headerKey = preferred.find(k=> k in p) || Object.keys(p)[0];
         const name = headerKey ? String(p[headerKey]) : 'Public Hunting Area';
         const keysOrdered = [...new Set([...preferred.filter(k=>k in p), ...Object.keys(p)])].slice(0,12);
-        const rows = keysOrdered.map(k=>`<div><span style=\"color:#a3b7a6\">${k}:</span> ${String(p[k])}</div>`).join('');
-        layer.bindPopup(`<b>${name}</b><div style=\"margin-top:6px\">${rows}</div>`);
+        const rows = keysOrdered.map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(p[k])}</div>`).join('');
+        layer.bindPopup(`<b>${name}</b><div style="margin-top:6px">${rows}</div>`);
         layer.on('mouseover', ()=> layer.setStyle({weight:3}));
         layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
       }
     });
-
     async function loadOhioPublic(){
       try{ const localResp = await fetch('ohio_public_hunting.geojson', {cache:'reload'}); if(localResp.ok){ const localJson = await localResp.json(); ohioPublic.addData(localJson); console.info('Loaded local ohio_public_hunting.geojson'); return; } }catch(e){ console.info('Local ohio_public_hunting.geojson not found'); }
       try{ const odnrResp = await fetch('https://gis2.ohiodnr.gov/ArcGIS/rest/services/OIT_Services/DNR_Fed_Lands_Nav_Base/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson'); const odnrJson = await odnrResp.json(); ohioPublic.addData(odnrJson); console.info('Loaded ODNR fallback layer'); }catch(err){ console.warn('ODNR layer fetch failed', err); }
     }
     loadOhioPublic();
 
-    /*******************
-     * OHIO COUNTIES + LABELS
-     *******************/
+    /* ========== WATERFOWL ZONES (local file optional) ========== */
+    const waterfowlZones = L.geoJSON(null, {
+      style:{ color:'#f59e0b', weight:2, fillOpacity:0.12 },
+      onEachFeature:(feat, layer)=>{
+        const p = feat.properties||{};
+        const title = p.ZONE_NAME || p.Zone || p.NAME || 'Waterfowl Zone';
+        const details = Object.keys(p).slice(0,12).map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(p[k])}</div>`).join('');
+        layer.bindPopup(`<b>${title}</b><div style="margin-top:6px">${details}</div>`);
+        layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+        layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
+      }
+    });
+    async function loadWaterfowl(){
+      try{
+        const r = await fetch('ohio_waterfowl_zones.geojson', {cache:'reload'});
+        if(r.ok){ const j = await r.json(); waterfowlZones.addData(j); console.info('Loaded ohio_waterfowl_zones.geojson'); }
+        else{ console.info('No local waterfowl zones file found'); }
+      }catch(e){ console.info('Waterfowl zones not loaded'); }
+    }
+    loadWaterfowl();
+
+    /* ========== OHIO COUNTIES + LABELS ========== */
     const ohioCounties = L.geoJSON(null, {
       style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
       onEachFeature: (feat, layer) => {
@@ -846,35 +735,91 @@
         layer._countyName = String(name);
       }
     });
-
     const countyLabels = L.layerGroup();
     function labelFontForZoom(z){ if(z>=11) return 14; if(z>=9) return 12; if(z>=7) return 10; return 0; }
     function refreshCountyLabels(){ const fs = labelFontForZoom(map.getZoom()); countyLabels.eachLayer(m => { const el = m.getElement(); if(!el) return; if(fs===0){ el.style.display='none'; } else { el.style.display='block'; el.style.fontSize = fs+'px'; } }); }
     function buildCountyLabels(){ countyLabels.clearLayers(); ohioCounties.eachLayer(layer => { try{ const center = layer.getBounds().getCenter(); const name = layer._countyName || 'County'; const lbl = L.marker(center, { interactive:false, pane:'tooltipPane', icon: L.divIcon({ className:'county-label', html: name }) }); countyLabels.addLayer(lbl);}catch(_){ } }); refreshCountyLabels(); if(map.hasLayer(ohioCounties) && !map.hasLayer(countyLabels)) countyLabels.addTo(map); }
     async function loadOhioCounties(){ try{ const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson'; const r = await fetch(url); const j = await r.json(); ohioCounties.addData(j); buildCountyLabels(); }catch(e){ console.warn('Counties layer fetch failed', e); } }
     loadOhioCounties();
+    map.on('zoomend', refreshCountyLabels);
 
-    /*******************
-     * RADAR LAYERS     *
-     *******************/
+    /* ========== OHIO CITIES (local file optional) ========== */
+    const citiesLayer = L.layerGroup();
+    let citiesIndex = []; // {name, alt?, ll, props}
+    async function loadCities(){
+      try{
+        const r = await fetch('ohio_cities.geojson', {cache:'reload'});
+        if(!r.ok) return;
+        const j = await r.json();
+        const features = j.features || [];
+        features.forEach(f=>{
+          const p = f.properties||{};
+          const nm = p.NAME || p.City || p.MUNICIPALITY || p.Place || p.name || 'City';
+          let lat,lng;
+          if(f.geometry && f.geometry.type==='Point'){ lat=f.geometry.coordinates[1]; lng=f.geometry.coordinates[0]; }
+          else if(f.geometry && (f.geometry.type==='Polygon' || f.geometry.type==='MultiPolygon')){
+            const bounds = L.geoJSON(f).getBounds(); const c = bounds.getCenter(); lat=c.lat; lng=c.lng;
+          }
+          if(lat==null || lng==null) return;
+          const marker = L.marker([lat,lng], { interactive:false, icon: L.divIcon({className:'county-label', html: nm}) });
+          citiesLayer.addLayer(marker);
+          citiesIndex.push({ name:nm, alt:(p.COUNTY||p.STATE||''), ll:[lat,lng], props:p });
+        });
+        console.info(`Loaded ${citiesIndex.length} cities`);
+      }catch(e){ console.info('No local cities file; search will still use Nominatim'); }
+    }
+    loadCities();
+
+    /* ========== RADAR ========== */
     const radarRain = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.6, attribution: 'RainViewer' });
     const radarNoaa = L.tileLayer.wms('https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows?', { layers: 'conus_bref_qcd', format: 'image/png', transparent: true, opacity: 0.6, attribution: 'NOAA/NWS' });
 
-    function setRadarSource(src){ const vis = document.getElementById('radarToggle').checked; map.removeLayer(radarRain); map.removeLayer(radarNoaa); if(!vis) return; if(src==='noaa') { radarNoaa.setOpacity(parseFloat(radarOpacity.value)); radarNoaa.addTo(map); } else { radarRain.setOpacity(parseFloat(radarOpacity.value)); radarRain.addTo(map); } localStorage.setItem('radar_src', src); }
-    function setRadarVisibility(v){ document.getElementById('radarToggle').checked = v; localStorage.setItem('radar_vis', v? '1':'0'); setRadarSource(localStorage.getItem('radar_src')||'rainviewer'); }
-    function setRadarOpacity(val){ const v=parseFloat(val); radarRain.setOpacity(v); radarNoaa.setOpacity(v); localStorage.setItem('radar_opacity', v.toString()); }
-
-    /*******************
-     * LAYERS CONTROL   *
-     *******************/
-    const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
+    /* ========== LAYERS CONTROL ========== */
+    const overlaysForControl = {
+      'Ohio Public Hunting': ohioPublic,
+      'Ohio Waterfowl Zones': waterfowlZones,
+      'Ohio Cities': citiesLayer,
+      'Ohio Counties': ohioCounties,
+      'Hunt Markers': markersLayer,
+      'My Drawings': drawnItems,
+      'My Track': trackLayer
+    };
     L.control.layers({ 'Basic':basic, 'Satellite':satellite, 'Topographic':topo }, overlaysForControl, { position:'bottomleft' }).addTo(map);
 
-    /*******************
-     * BOTTOM MENU ACTIONS
-     *******************/
-    const btnBasemap = document.getElementById('toggleBasemap');
+    /* ========== LOCATION BLUE DOT (persistent) ========== */
     const btnLocate  = document.getElementById('menuLocate');
+    let geoWatchId=null;
+    const locDot = L.circleMarker([0,0], {radius:8, color:'#1d4ed8', weight:2, fillColor:'#60a5fa', fillOpacity:0.95, className:'loc-dot'});
+    const accRing = L.circle([0,0], { radius:0, color:'#60a5fa', weight:1, opacity:0.6, fillOpacity:0.05 });
+    function startGeoWatch(centerOnce=true){
+      if(!navigator.geolocation){ alert('Geolocation not supported'); return; }
+      if(geoWatchId) return;
+      let justCentered = centerOnce;
+      geoWatchId = navigator.geolocation.watchPosition(pos=>{
+        const { latitude, longitude, accuracy } = pos.coords;
+        const ll = [latitude, longitude];
+        locDot.setLatLng(ll); accRing.setLatLng(ll).setRadius(accuracy||0);
+        if(!map.hasLayer(locDot)){ locDot.addTo(map); accRing.addTo(map); }
+        if(justCentered){ map.setView(ll, Math.max(map.getZoom(), 15)); justCentered=false; }
+        lastGPS = {lat:latitude, lng:longitude}; // share with wind/compass
+        setHeadingMarker(lastGPS, deviceHeading||0);
+        updateGuideLine(); updateScentCone();
+      }, _=>{}, { enableHighAccuracy:true, maximumAge:3000 });
+      btnLocate.textContent='Following';
+      localStorage.setItem('geo_watch_on','1');
+    }
+    function stopGeoWatch(){
+      if(geoWatchId){ navigator.geolocation.clearWatch(geoWatchId); geoWatchId=null; }
+      if(map.hasLayer(locDot)) map.removeLayer(locDot);
+      if(map.hasLayer(accRing)) map.removeLayer(accRing);
+      btnLocate.textContent='Locate Me';
+      localStorage.removeItem('geo_watch_on');
+    }
+    btnLocate.onclick = ()=>{ if(geoWatchId){ stopGeoWatch(); } else { startGeoWatch(true); } };
+    (function autoGeo(){ if(localStorage.getItem('geo_watch_on')==='1'){ startGeoWatch(false); } })();
+
+    /* ========== BOTTOM MENU / SHEETS / OVERLAYS ========== */
+    const btnBasemap = document.getElementById('toggleBasemap');
     const btnWaypoints = document.getElementById('menuWaypoints');
     const btnTrack = document.getElementById('menuTrack');
     const btnRadar = document.getElementById('menuRadar');
@@ -885,144 +830,118 @@
     const btnCompass = document.getElementById('menuCompass');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet'), compass: document.getElementById('compassSheet'), wpDetail: document.getElementById('wpDetailSheet') };
-    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); } }
+    const sheetMap = {
+      basemap: document.getElementById('basemapSheet'),
+      waypoints: document.getElementById('waypointsSheet'),
+      track: document.getElementById('trackSheet'),
+      radar: document.getElementById('radarSheet'),
+      wind: document.getElementById('windSheet'),
+      moon: document.getElementById('moonSheet'),
+      score: document.getElementById('scoreSheet'),
+      compass: document.getElementById('compassSheet'),
+      wpDetail: document.getElementById('wpDetailSheet')
+    };
+    function openSheet(which){
+      Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show');
+      if(which==='waypoints') refreshWaypointsUI();
+      if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); }
+      if(which==='moon'){ renderMoon(); }
+      if(which==='score'){ computeHuntScore(); }
+      if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); }
+    }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
-    // Make entire .option row clickable (toggle inner input)
     document.querySelectorAll('.sheet .option').forEach(opt=>{
       opt.addEventListener('click', (ev)=>{
-        if(ev.target.tagName==='SELECT') return;
+        if(['SELECT','INPUT','TEXTAREA','LABEL'].includes(ev.target.tagName)) return;
         const input = opt.querySelector('input'); if(!input) return;
         if(input.type==='radio'){ input.checked = true; input.dispatchEvent(new Event('change', {bubbles:true})); }
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
       });
     });
 
-    // Basemap sheet wiring
     const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
     function syncBaseRadio(){ const k = localStorage.getItem(STORAGE_BASE) || 'basic'; const r = radios.find(r=>r.value===k); if(r) r.checked = true; }
-    btnBasemap.onclick = ()=>{ openSheet('basemap'); };
-    radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); }));
+    btnBasemap.onclick = ()=> openSheet('basemap');
+    radios.forEach(r=> r.addEventListener('change', ()=> setBasemap(r.value)));
 
-    // Overlay toggles in the basemap sheet
     const ovlOhio = document.getElementById('ovlOhio');
+    const ovlWaterfowl = document.getElementById('ovlWaterfowl');
+    const ovlCities = document.getElementById('ovlCities');
     const ovlCounties = document.getElementById('ovlCounties');
     const ovlDraw = document.getElementById('ovlDraw');
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
+    function syncOverlayChecks(){
+      ovlOhio.checked = map.hasLayer(ohioPublic);
+      ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
+      ovlCities.checked = map.hasLayer(citiesLayer);
+      ovlCounties.checked = map.hasLayer(ohioCounties);
+      ovlDraw.checked = map.hasLayer(drawnItems);
+      ovlMarks.checked = map.hasLayer(markersLayer);
+      ovlTrack.checked = map.hasLayer(trackLayer);
+    }
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
+    ovlWaterfowl.onchange = ()=> ovlWaterfowl.checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
+    ovlCities.onchange = ()=> ovlCities.checked ? citiesLayer.addTo(map) : map.removeLayer(citiesLayer);
     ovlCounties.onchange = ()=> { if(ovlCounties.checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); } else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); } };
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
-
     map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
     map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
 
-    // Sheets buttons
+    /* Sheets buttons */
     document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
-    btnMoon.onclick = ()=> openSheet('moon');
-    btnScore.onclick = ()=> openSheet('score');
-    btnWaypoints.onclick = ()=> openSheet('waypoints');
-    btnTrack.onclick = ()=> openSheet('track');
-    btnCompass.onclick = ()=> openSheet('compass');
-
-    // Radar button toggles visibility quickly, then opens sheet
+    document.getElementById('menuWaypoints').onclick = ()=> openSheet('waypoints');
+    document.getElementById('menuTrack').onclick = ()=> openSheet('track');
+    document.getElementById('menuRadar').onclick = ()=>{ const wasVis = localStorage.getItem('radar_vis')==='1'; setRadarVisibility(!wasVis); restoreRadar(); openSheet('radar'); };
+    document.getElementById('menuCompass').onclick = ()=> openSheet('compass');
     const radarToggle = document.getElementById('radarToggle');
     const radarOpacity = document.getElementById('radarOpacity');
     const radarSrcRadios = Array.from(document.querySelectorAll('input[name="radarSrc"]'));
+    function setRadarSource(src){ const vis = radarToggle.checked; map.removeLayer(radarRain); map.removeLayer(radarNoaa); if(!vis) return; if(src==='noaa'){ radarNoaa.setOpacity(parseFloat(radarOpacity.value)); radarNoaa.addTo(map); } else { radarRain.setOpacity(parseFloat(radarOpacity.value)); radarRain.addTo(map); } localStorage.setItem('radar_src', src); }
+    function setRadarVisibility(v){ radarToggle.checked = v; localStorage.setItem('radar_vis', v? '1':'0'); setRadarSource(localStorage.getItem('radar_src')||'rainviewer'); }
+    function setRadarOpacity(val){ const v=parseFloat(val); radarRain.setOpacity(v); radarNoaa.setOpacity(v); localStorage.setItem('radar_opacity', v.toString()); }
     function restoreRadar(){ const vis = localStorage.getItem('radar_vis')==='1'; const src = localStorage.getItem('radar_src')||'rainviewer'; const op = parseFloat(localStorage.getItem('radar_opacity')||'0.6'); radarToggle.checked = vis; radarOpacity.value = op; const r = radarSrcRadios.find(r=>r.value===src); if(r) r.checked=true; setRadarOpacity(op); setRadarSource(src); }
-    btnRadar.onclick = ()=>{ const wasVis = localStorage.getItem('radar_vis')==='1'; setRadarVisibility(!wasVis); restoreRadar(); openSheet('radar'); };
     radarToggle.onchange = ()=> setRadarVisibility(radarToggle.checked);
     radarOpacity.oninput = ()=> setRadarOpacity(radarOpacity.value);
     radarSrcRadios.forEach(r=> r.addEventListener('change', ()=> setRadarSource(r.value)));
 
-    // Field Info toggle & position persistence
     const infoPanel = document.getElementById('infoPanel');
-    const btnFieldInfo = document.getElementById('toggleFieldInfo');
-    const STORAGE_INFO_POS = 'ui_info_pos';
     const STORAGE_INFO_VIS = 'ui_info_visible';
     function setInfoVisible(v){ infoPanel.style.display = v? 'block':'none'; localStorage.setItem(STORAGE_INFO_VIS, v? '1':'0'); if(v){ updateSun(); updateTrackStats(); } }
     function getInfoVisible(){ return localStorage.getItem(STORAGE_INFO_VIS) === '1'; }
     setInfoVisible(getInfoVisible());
 
-    // Export / Import / Delete mode (bottom menu)
-    btnExport.onclick = () => { const drawings = JSON.parse(localStorage.getItem(STORAGE_DRAW) || '{}'); const data = { drawings, markers: serializeMarkers(), track: trackPoints }; const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url); };
+    btnExport.onclick = () => {
+      const drawings = JSON.parse(localStorage.getItem(STORAGE_DRAW) || '{}');
+      const data = { drawings, markers: serializeMarkers(), track: trackPoints };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url);
+    };
     btnImport.onclick = () => fileInput.click();
-    fileInput.onchange = (ev) => { const f = ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = () => { try{ const obj = JSON.parse(r.result);
-        if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
-          localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
-          drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
-        } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
-          L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)});
-          saveDraw();
-        }
-        if(obj.markers) deserializeMarkers(obj.markers);
-        if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); }
-      } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; } }; r.readAsText(f); };
+    fileInput.onchange = (ev) => {
+      const f = ev.target.files[0]; if(!f) return; const r=new FileReader();
+      r.onload = () => {
+        try{
+          const obj = JSON.parse(r.result);
+          if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
+            localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
+            drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
+          } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
+            L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)}); saveDraw();
+          }
+          if(obj.markers) deserializeMarkers(obj.markers);
+          if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); }
+        } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; }
+      }; r.readAsText(f);
+    };
     btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`; };
 
-    /*******************
-     * LIVE GPS DOT (watch + center-on-demand)
-     *******************/
-    let gpsMarker=null, gpsCircle=null, gpsWatchId=null;
-    const gpsIcon = L.divIcon({ className:'', html:'<div class="pulse-dot"></div>', iconSize:[22,22], iconAnchor:[11,11] });
-
-    function updateGPSDot(lat,lng,accuracy){
-      const latlng = [lat,lng];
-      if(!gpsMarker){ gpsMarker = L.marker(latlng, {icon:gpsIcon, interactive:false, zIndexOffset:1000}).addTo(map); }
-      else { gpsMarker.setLatLng(latlng); }
-      if(!gpsCircle){
-        gpsCircle = L.circle(latlng, { radius: Math.min(accuracy||50, 200), color:'#2563eb', weight:2, fillColor:'#60a5fa', fillOpacity:0.15 }).addTo(map);
-      } else {
-        gpsCircle.setLatLng(latlng);
-        gpsCircle.setRadius(Math.min(accuracy||50, 200));
-      }
-    }
-
-    function ensureGPSWatch(interactive=false){
-      if(gpsWatchId || !navigator.geolocation){ if(!navigator.geolocation && interactive) alert('Geolocation not supported'); return !!gpsWatchId; }
-      try{
-        gpsWatchId = navigator.geolocation.watchPosition(
-          pos=>{
-            const {latitude, longitude, accuracy} = pos.coords;
-            lastGPS = {lat:latitude, lng:longitude};
-            updateGPSDot(latitude, longitude, accuracy);
-          },
-          err=>{ if(interactive) alert('Location error: '+err.message); },
-          { enableHighAccuracy:true, maximumAge:5000 }
-        );
-      }catch(e){ if(interactive) alert('Location error'); }
-      return !!gpsWatchId;
-    }
-
-    // Try to start quietly on load (some browsers require a user gesture; this may no-op)
-    setTimeout(()=> ensureGPSWatch(false), 800);
-
-    // Locate: start watch and center
-    document.getElementById('menuLocate').onclick = ()=>{
-      const ok = ensureGPSWatch(true);
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(
-          pos=>{
-            const {latitude, longitude, accuracy} = pos.coords;
-            lastGPS = {lat:latitude, lng:longitude};
-            updateGPSDot(latitude, longitude, accuracy);
-            map.setView([latitude, longitude], Math.max(map.getZoom(), 15));
-          },
-          err=> alert('Location error: '+err.message),
-          { enableHighAccuracy:true, timeout:8000 }
-        );
-      }
-    };
-
-    /*******************
-     * Draggable Field Info
-     *******************/
+    /* Draggable Field Info */
     function makeDraggable(el, handle, storageKey){
       let sx=0, sy=0, sl=0, st=0, dragging=false;
       function point(e){ if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; }
@@ -1040,42 +959,33 @@
     }
     makeDraggable(document.getElementById('infoPanel'), document.getElementById('infoHandle'), 'ui_info_pos');
 
-    /*******************
-     * SUN & MOON
-     *******************/
+    /* ========== SUN & MOON ========== */
     function updateSun(){ const c = map.getCenter(); const now = new Date(); const t = SunCalc.getTimes(now, c.lat, c.lng); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; document.getElementById('pSunrise').textContent = fmt(t.sunrise); document.getElementById('pSunset').textContent  = fmt(t.sunset); const mins = Math.max(0, (t.sunset - t.sunrise)/60000|0); document.getElementById('pDay').textContent = `${Math.floor(mins/60)}h ${mins%60}m`; }
     updateSun(); map.on('moveend', updateSun);
-
-    function phaseName(phase){ const p = (phase + 1) % 1; if(p < 0.03 || p > 0.97) return 'New Moon'; if(p < 0.22) return 'Waxing Crescent'; if(p < 0.28) return 'First Quarter'; if(p < 0.47) return 'Waxing Gibbous'; if(p < 0.53) return 'Full Moon'; if(p < 0.72) return 'Waning Gibbous'; if(p < 0.78) return 'Last Quarter'; return 'Waning Crescent'; }
-    function phaseEmoji(phase){ const p=(phase+1)%1; if(p < 0.03 || p > 0.97) return '🌑'; if(p < 0.22) return '🌒'; if(p < 0.28) return '🌓'; if(p < 0.47) return '🌔'; if(p < 0.53) return '🌕'; if(p < 0.72) return '🌖'; if(p < 0.78) return '🌗'; return '🌘'; }
-
+    function phaseName(phase){ const p=(phase+1)%1; if(p<0.03||p>0.97) return 'New Moon'; if(p<0.22) return 'Waxing Crescent'; if(p<0.28) return 'First Quarter'; if(p<0.47) return 'Waxing Gibbous'; if(p<0.53) return 'Full Moon'; if(p<0.72) return 'Waning Gibbous'; if(p<0.78) return 'Last Quarter'; return 'Waning Crescent'; }
+    function phaseEmoji(phase){ const p=(phase+1)%1; if(p<0.03||p>0.97) return '🌑'; if(p<0.22) return '🌒'; if(p<0.28) return '🌓'; if(p<0.47) return '🌔'; if(p<0.53) return '🌕'; if(p<0.72) return '🌖'; if(p<0.78) return '🌗'; return '🌘'; }
     function renderMoon(){ const c = map.getCenter(); const now = new Date(); const illum = SunCalc.getMoonIllumination(now); const mt = SunCalc.getMoonTimes(now, c.lat, c.lng, true); const fmt = d => d ? d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'; const pct = Math.round(illum.fraction*100); let html = `<div class="row"><span>Today</span><strong class="tag">${phaseEmoji(illum.phase)} ${phaseName(illum.phase)} · ${pct}%</strong></div>`+`<div class="row"><span>Moonrise</span><strong class="tag">${fmt(mt.rise)}</strong></div>`+`<div class="row"><span>Moonset</span><strong class="tag">${fmt(mt.set)}</strong></div>`+`<p class="tag" style="margin-top:6px">Next 7 days</p>`; for(let i=1;i<=7;i++){ const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i); const im = SunCalc.getMoonIllumination(d); const tt = SunCalc.getMoonTimes(d, c.lat, c.lng, true); html += `<div class="row"><span>${d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</span><strong class="tag">${phaseEmoji(im.phase)} ${Math.round(im.fraction*100)}% · ${fmt(tt.rise)} / ${fmt(tt.set)}</strong></div>`; } document.getElementById('moonContent').innerHTML = html; }
 
-    /*******************
-     * HUNT SCORE
-     *******************/
+    /* ========== HUNT SCORE ========== */
     const scoreList = document.getElementById('scoreList');
     const scoreRefreshBtn = document.getElementById('scoreRefresh');
     const scoreLocRadios = Array.from(document.querySelectorAll('input[name="scoreLoc"]'));
-
     function gauss(x, mu, sigma){ const z=(x-mu)/sigma; return Math.exp(-0.5*z*z); }
     function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
-
-    async function fetchForecast(lat,lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('forecast fetch failed'); return r.json(); }
-
+    async function fetchForecast(lat,lng){ const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,wind_speed_10m,precipitation_probability,cloud_cover,surface_pressure&daily=sunrise,sunset&forecast_days=3&timezone=auto&wind_speed_unit=mph`; const r = await fetch(url); if(!r.ok) throw new Error('forecast'); return r.json(); }
     function buildSunWindows(daily){ const windows = {}; for(let i=0;i<daily.time.length;i++){ windows[daily.time[i]] = { sr: new Date(daily.sunrise[i]), ss: new Date(daily.sunset[i]) }; } return windows; }
-
-    function lunarBoost(date, lat, lng){ const ill = SunCalc.getMoonIllumination(date); const pos = SunCalc.getMoonPosition(date, lat, lng); const frac = ill.fraction; const alt = pos.altitude; let boost = 0; if(frac < 0.3){ boost += clamp((0.3 - frac)/0.3, 0, 1) * clamp((0.2 - Math.abs(alt))/0.2, 0, 1) * 12; } else if(frac > 0.7){ boost += clamp((frac - 0.7)/0.3, 0, 1) * clamp((alt - 0.4)/0.6, 0, 1) * 8; } return boost; }
-
-    async function computeHuntScore(){ scoreList.innerHTML = '<p class="tag">Loading forecast…</p>'; let anchor = map.getCenter(); const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps'; if(which==='gps'){ try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){} }
+    function lunarBoost(date, lat, lng){ const ill=SunCalc.getMoonIllumination(date); const pos=SunCalc.getMoonPosition(date, lat, lng); const frac=ill.fraction; const alt=pos.altitude; let boost=0; if(frac<0.3){ boost += clamp((0.3-frac)/0.3,0,1)*clamp((0.2-Math.abs(alt))/0.2,0,1)*12; } else if(frac>0.7){ boost += clamp((frac-0.7)/0.3,0,1)*clamp((alt-0.4)/0.6,0,1)*8; } return boost; }
+    async function computeHuntScore(){
+      scoreList.innerHTML = '<p class="tag">Loading forecast…</p>';
+      let anchor = map.getCenter();
+      const which = (scoreLocRadios.find(r=>r.checked)||{}).value || 'gps';
+      if(which==='gps'){ try{ const pos = await new Promise((res,rej)=>{ if(!navigator.geolocation) return rej('no geo'); navigator.geolocation.getCurrentPosition(p=>res(p), e=>rej(e), {enableHighAccuracy:true, timeout:6000}); }); anchor = { lat: pos.coords.latitude, lng: pos.coords.longitude }; } catch(e){} }
       let data; try{ data = await fetchForecast(anchor.lat, anchor.lng); } catch(e){ scoreList.innerHTML = '<p class="tag">Forecast unavailable.</p>'; return; }
       const hourly = data.hourly || {}; const times = (hourly.time||[]).map(t=> new Date(t));
-      const ws = hourly.wind_speed_10m || []; const tp = hourly.temperature_2m || []; const pr = hourly.precipitation_probability || []; const cc = hourly.cloud_cover || []; const sp = hourly.surface_pressure || [];
+      const ws = hourly.wind_speed_10m || []; const tp = hourly.temperature_2m || []; const pr = hourly.precipitation_probability || []; const cc = hourly.cloud_cover || [];
       const sun = buildSunWindows(data.daily || {time:[], sunrise:[], sunset:[]});
-
       const byDay = {}; times.forEach((d,i)=>{ const k=d.toISOString().slice(0,10); (byDay[k]||(byDay[k]={temps:[]})).temps.push(tp[i]); });
       const medByDay = {}; Object.keys(byDay).forEach(k=>{ const arr = byDay[k].temps.slice().sort((a,b)=>a-b); const m = arr[Math.floor(arr.length/2)]||arr[0]||0; medByDay[k]=m; });
-
       const rows = [];
       for(let i=0;i<times.length;i++){
         const d = times[i]; const dateKey=d.toISOString().slice(0,10);
@@ -1087,50 +997,30 @@
         const cloud = 1 - (cc[i]||0)/300;
         const lunar = lunarBoost(d, anchor.lat, anchor.lng) / 12;
         const score = clamp( (light*0.38 + wind*0.22 + (temp+0.5)*0.16 + precip*0.18 + cloud*0.02 + lunar*0.04) * 100, 0, 100 );
-        rows.push({ d, score: Math.round(score), wind:w, temp:t, precip: p });
+        rows.push({ d, score: Math.round(score) });
       }
       const now = new Date();
-      const next48 = rows.filter(r=> r.d - now >= 0 && r.d - now <= 48*3600*1000);
-      next48.sort((a,b)=> b.score - a.score);
-      const top = next48.slice(0, 16).sort((a,b)=> a.d - b.d);
-      scoreList.innerHTML = top.map(r=>{ const w = r.score; const bar = Math.round(w); const time = r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'}); return `<div class="score-item"> <div class="tag">${time}</div> <div class="bar"><span style="width:${bar}%"></span></div> <div class="tag" style="text-align:right">${w} / 100</div> </div>`; }).join('') || '<p class="tag">No forecast rows.</p>';
+      const next48 = rows.filter(r=> r.d - now >= 0 && r.d - now <= 48*3600*1000).sort((a,b)=> b.score - a.score).slice(0,16).sort((a,b)=> a.d - b.d);
+      scoreList.innerHTML = next48.map(r=>{ const w=r.score; const bar=Math.round(w); const time=r.d.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit'}); return `<div class="score-item"><div class="tag">${time}</div><div class="bar"><span style="width:${bar}%"></span></div><div class="tag" style="text-align:right">${w} / 100</div></div>`; }).join('') || '<p class="tag">No forecast rows.</p>';
     }
     scoreRefreshBtn.onclick = ()=> computeHuntScore();
 
-    /*******************
-     * COMPASS + BEARING LINE
-     *******************/
-    const compSheet = document.getElementById('compassSheet');
+    /* ========== COMPASS ========== */
     const compEnable = document.getElementById('compEnable');
     const compHeadingText = document.getElementById('compHeadingText');
     const compTargetSel = document.getElementById('compTarget');
     const compAnchorRadios = Array.from(document.querySelectorAll('input[name="compAnchor"]'));
     const compDist = document.getElementById('compDist');
     const compBear = document.getElementById('compBear');
-
-    let compassWatchId = null; // GPS for compass
-    let deviceHeading = null;  // degrees
-    let guideTargetId = localStorage.getItem('guide_target') || '';
-
+    let compassWatchId = null; let deviceHeading = null; let guideTargetId = localStorage.getItem('guide_target') || '';
     const guideLine = L.polyline([], { color:'#fdae6b', weight:3, dashArray:'6,6' }).addTo(map);
     const headingMarker = L.marker([0,0], { interactive:false, icon: L.divIcon({className:'', html:`<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid #fef08a; transform:rotate(0deg); filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))"></div>`}) });
-
     function setHeadingMarker(latlng, heading){ headingMarker.setLatLng(latlng); const el = headingMarker.getElement(); if(el){ el.firstChild.style.transform = `rotate(${heading}deg)`; } if(!map.hasLayer(headingMarker)) headingMarker.addTo(map); }
-
-    function bearingDeg(a, b){ const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat)); const x = Math.cos(toRad(a.lat))*Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.cos(toRad(b.lng-a.lng)); return (toDeg(Math.atan2(y, x)) + 360) % 360; }
-
-    function rebuildCompassTargets(){
-      const wps = getWaypoints();
-      const opts = ['<option value="">(none)</option>'].concat(wps.map(w=> `<option value="${w.id}">${(w.name||'Unnamed')} — ${labelFor(w)}</option>`));
-      compTargetSel.innerHTML = opts.join('');
-      if(guideTargetId){ compTargetSel.value = guideTargetId; }
-    }
-
-    function setGuideTarget(id){ guideTargetId = id || ''; localStorage.setItem('guide_target', guideTargetId); rebuildCompassTargets(); updateGuideLine(); }
+    function bearingDeg(a, b){ const y = Math.sin((b.lng-a.lng)*Math.PI/180) * Math.cos(b.lat*Math.PI/180); const x = Math.cos(a.lat*Math.PI/180)*Math.sin(b.lat*Math.PI/180) - Math.sin(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.cos((b.lng-a.lng)*Math.PI/180); return ((Math.atan2(y, x)*180/Math.PI)+360)%360; }
+    function rebuildCompassTargets(){ const wps=getWaypoints(); const opts=['<option value="">(none)</option>'].concat(wps.map(w=> `<option value="${w.id}">${(w.name||'Unnamed')} — ${labelFor(w)}</option>`)); compTargetSel.innerHTML=opts.join(''); if(guideTargetId){ compTargetSel.value=guideTargetId; } }
+    function setGuideTarget(id){ guideTargetId=id||''; localStorage.setItem('guide_target', guideTargetId); rebuildCompassTargets(); updateGuideLine(); }
     compTargetSel.addEventListener('change', ()=> setGuideTarget(compTargetSel.value));
-
     function compOrigin(){ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='gps' && lastGPS){ return L.latLng(lastGPS.lat, lastGPS.lng); } return map.getCenter(); }
-
     function updateGuideLine(){
       const origin = compOrigin();
       if(!guideTargetId){ guideLine.setLatLngs([]); compDist.textContent='--'; compBear.textContent='--'; return; }
@@ -1138,57 +1028,130 @@
       if(!targetMarker){ guideLine.setLatLngs([]); compDist.textContent='--'; compBear.textContent='--'; return; }
       const target = targetMarker.getLatLng();
       guideLine.setLatLngs([origin, target]);
-      const d = map.distance(origin, target);
-      compDist.textContent = fmtFeetMiles(d);
-      const brg = bearingDeg(origin, target);
-      const dirs = ['N','NE','E','SE','S','SW','W','NW']; const card = dirs[Math.round(brg/45)%8];
-      compBear.textContent = `${Math.round(brg)}° ${card}`;
+      const d = map.distance(origin, target); compDist.textContent = fmtFeetMiles(d);
+      const brg = bearingDeg(origin, target); const dirs=['N','NE','E','SE','S','SW','W','NW']; const card=dirs[Math.round(brg/45)%8]; compBear.textContent = `${Math.round(brg)}° ${card}`;
     }
-
-    function updateCompassReadout(){
-      const h = deviceHeading; if(h==null){ compHeadingText.textContent = 'Heading: --'; } else { const dirs = ['N','NE','E','SE','S','SW','W','NW']; const card = dirs[Math.round(h/45)%8]; compHeadingText.textContent = `Heading: ${Math.round(h)}° ${card}`; }
-      updateGuideLine();
-    }
-
-    function onDeviceOrientation(e){
-      let hdg = null;
-      if(typeof e.webkitCompassHeading === 'number'){ hdg = e.webkitCompassHeading; }
-      else if(typeof e.alpha === 'number'){ hdg = (360 - e.alpha) % 360; }
-      if(hdg!=null){ deviceHeading = hdg; updateCompassReadout(); }
-    }
-
+    function updateCompassReadout(){ const h=deviceHeading; compHeadingText.textContent = (h==null)? 'Heading: --' : `Heading: ${Math.round(h)}° ${['N','NE','E','SE','S','SW','W','NW'][Math.round(h/45)%8]}`; updateGuideLine(); }
+    function onDeviceOrientation(e){ let hdg=null; if(typeof e.webkitCompassHeading==='number'){ hdg=e.webkitCompassHeading; } else if(typeof e.alpha==='number'){ hdg=(360 - e.alpha) % 360; } if(hdg!=null){ deviceHeading=hdg; updateCompassReadout(); } }
     async function enableCompass(){
       try{
-        if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-          const resp = await DeviceOrientationEvent.requestPermission(); if(resp !== 'granted') throw new Error('Permission denied');
-        }
+        if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){ const resp=await DeviceOrientationEvent.requestPermission(); if(resp!=='granted') throw new Error('Permission denied'); }
         window.addEventListener('deviceorientation', onDeviceOrientation, true);
       }catch(e){ alert('Compass permission denied or unsupported. You can still use the bearing line.'); }
-      // GPS watch for origin
-      try{
-        if(!compassWatchId && navigator.geolocation){ compassWatchId = navigator.geolocation.watchPosition(pos=>{ lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setHeadingMarker(lastGPS, deviceHeading||0); updateGuideLine(); }, err=>{}, {enableHighAccuracy:true, maximumAge:4000}); }
-      }catch(_){ }
+      try{ if(!compassWatchId && navigator.geolocation){ compassWatchId = navigator.geolocation.watchPosition(pos=>{ lastGPS={lat:pos.coords.latitude,lng:pos.coords.longitude}; setHeadingMarker(lastGPS, deviceHeading||0); updateGuideLine(); }, _=>{}, {enableHighAccuracy:true, maximumAge:4000}); } }catch(_){}
     }
-
     compEnable.onclick = ()=> enableCompass();
     compAnchorRadios.forEach(r=> r.addEventListener('change', ()=> updateGuideLine()));
-    map.on('moveend', ()=>{ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
+    map.on('moveend', ()=>{ const mode=(compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
 
-    /*******************
-     * FIELD INFO draggable wiring done earlier
-     *******************/
+    /* ========== SEARCH (Nominatim + local cities) ========== */
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+    const searchMarkerLayer = L.layerGroup().addTo(map);
 
-    // Draggable Field Info already wired above.
-
-    /*******************
-     * PWA: register service worker (expects /sw.js on your server)
-     *******************/
-    if('serviceWorker' in navigator){
-      window.addEventListener('load', ()=>{
-        navigator.serviceWorker.register('/sw.js').catch(()=>{/* ignore */});
+    function showResults(items){
+      if(!items || !items.length){ searchResults.classList.remove('show'); searchResults.innerHTML=''; return; }
+      searchResults.innerHTML = items.map(it=> `<div class="sr-item" data-idx="${it.__i}"><div class="sr-title">${it.title}</div><div class="sr-sub">${it.sub||''}</div></div>`).join('');
+      searchResults.classList.add('show');
+    }
+    function flyToResult(it){
+      searchResults.classList.remove('show');
+      searchMarkerLayer.clearLayers();
+      if(it.bbox){ // [west, south, east, north]
+        const b = L.latLngBounds([ [it.bbox[1], it.bbox[0]],[it.bbox[3], it.bbox[2]] ]);
+        map.fitBounds(b, { maxZoom: 17 });
+      } else if(it.ll){
+        map.setView(it.ll, 16);
+      }
+      if(it.ll){
+        L.marker(it.ll, {icon: L.divIcon({className:'', html:'<div style="background:#1e293b;border:2px solid #60a5fa;color:#e7f1e8;border-radius:8px;padding:2px 6px;box-shadow:0 2px 8px rgba(0,0,0,.5)">📍</div>'})}).addTo(searchMarkerLayer);
+      }
+    }
+    function parseCoords(q){
+      const m = q.trim().match(/^\s*([-+]?\d+(\.\d+)?)\s*,\s*([-+]?\d+(\.\d+)?)\s*$/);
+      if(!m) return null; const lat=parseFloat(m[1]), lng=parseFloat(m[3]); if(isNaN(lat)||isNaN(lng)) return null; if(Math.abs(lat)>90||Math.abs(lng)>180) return null; return [lat,lng];
+    }
+    async function geocode(q){
+      const coord = parseCoords(q);
+      if(coord){ return [{ title:`${coord[0].toFixed(5)}, ${coord[1].toFixed(5)}`, sub:'Coordinates', ll:coord }]; }
+      const url = `https://nominatim.openstreetmap.org/search?format=geojson&limit=8&countrycodes=us&q=${encodeURIComponent(q)}`;
+      const r = await fetch(url, {headers:{'Accept-Language':'en-US'}}); const j = await r.json();
+      const items = (j.features||[]).map(f=>{
+        const ll=[f.geometry.coordinates[1], f.geometry.coordinates[0]];
+        const bbox=f.bbox||null; const props=f.properties||{};
+        return { title: (props.display_name||'Result'), sub: props.type||'', ll, bbox };
       });
+      return items;
+    }
+    function searchLocalCities(q){
+      const s = q.toLowerCase();
+      return citiesIndex.filter(c => c.name && c.name.toLowerCase().includes(s)).slice(0,8).map(c=>({ title:c.name, sub:c.alt||'City', ll:c.ll }));
+    }
+    async function doSearch(){
+      const q = searchInput.value.trim();
+      if(!q) return showResults([]);
+      const local = searchLocalCities(q);
+      let web=[]; try{ web = await geocode(q); }catch(_){}
+      const items=[...local, ...web].map((it,i)=> (it.__i=i, it));
+      showResults(items);
+    }
+    let sTimer=null;
+    searchInput.addEventListener('input', ()=>{ clearTimeout(sTimer); sTimer=setTimeout(doSearch, 350); });
+    searchBtn.addEventListener('click', doSearch);
+    searchInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSearch(); } });
+    searchResults.addEventListener('click', (e)=>{ const it = e.target.closest('.sr-item'); if(!it) return; const idx=parseInt(it.dataset.idx,10); const list=[...searchResults.querySelectorAll('.sr-item')]; const dataTitle=list[idx]?.querySelector('.sr-title')?.textContent||''; // not used
+      // We rebuild items from current DOM click by reading displayed text would lose ll; keep a short-lived cache instead:
+    });
+    // Keep last results in closure for click handling
+    let lastResultItems=[];
+    function showResults(items){ lastResultItems = items; if(!items || !items.length){ searchResults.classList.remove('show'); searchResults.innerHTML=''; return; }
+      searchResults.innerHTML = items.map((it,i)=> `<div class="sr-item" data-idx="${i}"><div class="sr-title">${it.title}</div><div class="sr-sub">${it.sub||''}</div></div>`).join('');
+      searchResults.classList.add('show');
+    }
+    searchResults.addEventListener('click', (e)=>{ const row=e.target.closest('.sr-item'); if(!row) return; const idx=parseInt(row.dataset.idx,10); const it=lastResultItems[idx]; if(!it) return; flyToResult(it); });
+
+    /* ========== FIELD INFO DRAG ========== */
+    function makeDraggable(el, handle, storageKey){
+      let sx=0, sy=0, sl=0, st=0, dragging=false;
+      function point(e){ if(e.touches && e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; }
+      function apply(l,t){ const vw=innerWidth, vh=innerHeight; const w=el.offsetWidth, h=el.offsetHeight; l=Math.max(4,Math.min(vw-w-4,l)); t=Math.max(60,Math.min(vh-h-4,t)); el.style.left=l+'px'; el.style.top=t+'px'; }
+      function savePos(){ const r=el.getBoundingClientRect(); localStorage.setItem(storageKey, JSON.stringify({left:r.left, top:r.top})); }
+      function move(e){ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }
+      function tmove(e){ if(!dragging) return; const p=point(e); apply(sl+p.x-sx, st+p.y-sy); e.preventDefault(); }
+      function up(){ dragging=false; document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); document.removeEventListener('touchmove',tmove); document.removeEventListener('touchend',up); savePos(); }
+      function start(x,y){ dragging=true; sx=x; sy=y; const r=el.getBoundingClientRect(); sl=r.left; st=r.top; document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); document.addEventListener('touchmove',tmove,{passive:false}); document.addEventListener('touchend',up); }
+      function down(e){ const p=point(e); start(p.x,p.y); e.preventDefault(); }
+      function tdown(e){ const p=point(e); start(p.x,p.y); }
+      try{ const s=JSON.parse(localStorage.getItem(storageKey)||'null'); if(s){ el.style.left=s.left+'px'; el.style.top=s.top+'px'; } }catch{}
+      handle.addEventListener('mousedown',down);
+      handle.addEventListener('touchstart',tdown,{passive:false});
+    }
+    makeDraggable(document.getElementById('infoPanel'), document.getElementById('infoHandle'), 'ui_info_pos');
+
+    /* ========== SHEET OPENERS & SUN/MOON ========== */
+    document.getElementById('menuMoon').onclick = ()=> openSheet('moon');
+    document.getElementById('menuScore').onclick = ()=> openSheet('score');
+
+    /* ========== FIELD INFO VISIBILITY ========== */
+    const STORAGE_INFO_POS = 'ui_info_pos';
+    function getInfoVisible(){ return localStorage.getItem('ui_info_visible')==='1'; }
+    const infoPanelEl = document.getElementById('infoPanel');
+    function setInfoVisible(v){ infoPanelEl.style.display = v? 'block':'none'; localStorage.setItem('ui_info_visible', v? '1':'0'); if(v){ updateSun(); updateTrackStats(); } }
+    setInfoVisible(getInfoVisible());
+
+    /* ========== SERVICE WORKER (optional) ========== */
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/sw.js').catch(()=>{}); });
     }
 
+    /* ========== BASEMAP SHEET WIRING (after defs) ========== */
+    const btnFieldInfo = document.getElementById('toggleFieldInfo');
+    btnFieldInfo.onclick = ()=> setInfoVisible(infoPanelEl.style.display==='none' || infoPanelEl.style.display==='');
+
+    /* Ensure overlay label sync on zoom for counties */
+    map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
+    map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
   </script>
 </body>
 </html>
