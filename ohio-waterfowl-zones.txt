@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "name": "ohio_waterfowl_zones_simplified",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "Zone_": "Lake Erie Marsh Zone",
+        "DuckSeason": "Oct 18–Nov 2 & Nov 15–Dec 28, 2025",
+        "GooseSeason": "Oct 18–Nov 2 & Nov 15, 2025 – Feb 2, 2026"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-83.25, 41.95], [-82.45, 41.95], [-82.45, 41.45], [-83.25, 41.45], [-83.25, 41.95]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Zone_": "North Zone",
+        "DuckSeason": "Oct 18–26 & Nov 15, 2025 – Jan 4, 2026",
+        "GooseSeason": "Oct 18–26 & Nov 15, 2025 – Feb 9, 2026"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-84.82, 41.95], [-80.52, 41.95], [-80.52, 40.30], [-84.82, 40.30], [-84.82, 41.95]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Zone_": "South Zone",
+        "DuckSeason": "Oct 18–27 & Dec 13, 2025 – Jan 31, 2026",
+        "GooseSeason": "Oct 18–27 & Nov 16, 2025 – Feb 9, 2026"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-84.82, 40.30], [-80.52, 40.30], [-80.52, 38.40], [-84.82, 38.40], [-84.82, 40.30]
+        ]]
+      }
+    }
+  ]
+}
