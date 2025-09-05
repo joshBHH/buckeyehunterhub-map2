@@ -1,3 +1,5 @@
+Latest working BHH hunting map Index.html 9/5/25
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,16 +108,6 @@
       100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}
     }
 
-    /* Waterfowl zone label + tooltip */
-    .zone-label{
-      position:absolute; transform:translate(-50%,-50%);
-      background:rgba(10,38,52,.70); border:1px solid #0b364b;
-      color:#e6f4ff; padding:2px 6px; border-radius:10px;
-      font-weight:600; white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.5);
-      pointer-events:none; user-select:none
-    }
-    .leaflet-tooltip.zone-tip{background:#0b1a0f;border:1px solid #203325;color:#e7f1e8}
-
     /* --- Mobile tweaks --- */
     @media (max-width:640px){
       :root{ --logo-size: 96px; }
@@ -183,7 +175,6 @@
       <h4 style="margin-top:10px">Overlays</h4>
       <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
       <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
-      <div class="option"><span>Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
       <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
       <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
@@ -453,9 +444,7 @@
     function removeSegLabels(layer){
       if(layer._segLabels){ layer._segLabels.forEach(lbl=> segmentLabelsGroup.removeLayer(lbl)); layer._segLabels = null; }
     }
-    function removeTotalLabel(layer){ if(layer._totalLabel){ segmentLabelsGroup.removeLayer(layer._totalLabel); layer._totalLabel=null; }
-
-    }
+    function removeTotalLabel(layer){ if(layer._totalLabel){ segmentLabelsGroup.removeLayer(layer._totalLabel); layer._totalLabel=null; } }
 
     function labelPolylineSegments(layer){
       removeSegLabels(layer);
@@ -528,9 +517,9 @@
 
     function markerPopupHTML(m){
       const cfg = markerTypes[m.options.type] || {label:'Marker'};
-      const img = m.options.photo ? `<div style="margin-top:6px"><img src="${m.options.photo}" alt="photo" style="max-width:160px;border-radius:8px;border:1px solid #203325"/></div>` : '';
-      const notes = m.options.notes ? `<div class="tag" style="margin-top:6px">${m.options.notes.replace(/</g,'&lt;')}</div>` : '';
-      return `<b>${m.options.name}</b><div class="tag">${cfg.label}</div>${img}${notes}<div style="margin-top:8px"><button class="del">Delete</button></div>`;
+      const img = m.options.photo ? `<div style=\"margin-top:6px\"><img src=\"${m.options.photo}\" alt=\"photo\" style=\"max-width:160px;border-radius:8px;border:1px solid #203325\"/></div>` : '';
+      const notes = m.options.notes ? `<div class=\"tag\" style=\"margin-top:6px\">${m.options.notes.replace(/</g,'&lt;')}</div>` : '';
+      return `<b>${m.options.name}</b><div class=\"tag\">${cfg.label}</div>${img}${notes}<div style=\"margin-top:8px\"><button class=\"del\">Delete</button></div>`;
     }
 
     function addMarker(latlng, type, name, id, notes, photo){
@@ -732,7 +721,7 @@
     function stopTrack(){ if(!watchId) return; navigator.geolocation.clearWatch(watchId); watchId=null; document.getElementById('trkStatus').textContent = 'Stopped'; document.getElementById('trkStartStop').textContent = 'Start'; updateTrackStats(); }
     function clearTrack(){ stopTrack(); trackPoints=[]; lastPoint=null; trackLayer.setLatLngs([]); saveTrack(); }
 
-    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="BuckeyeHunterHub" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat="${p.lat}" lon="${p.lng}"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
+    function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"BuckeyeHunterHub\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat=\"${p.lat}\" lon=\"${p.lng}\"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
 
     loadTrack();
 
@@ -834,8 +823,8 @@
         const headerKey = preferred.find(k=> k in p) || Object.keys(p)[0];
         const name = headerKey ? String(p[headerKey]) : 'Public Hunting Area';
         const keysOrdered = [...new Set([...preferred.filter(k=>k in p), ...Object.keys(p)])].slice(0,12);
-        const rows = keysOrdered.map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(p[k])}</div>`).join('');
-        layer.bindPopup(`<b>${name}</b><div style="margin-top:6px">${rows}</div>`);
+        const rows = keysOrdered.map(k=>`<div><span style=\"color:#a3b7a6\">${k}:</span> ${String(p[k])}</div>`).join('');
+        layer.bindPopup(`<b>${name}</b><div style=\"margin-top:6px\">${rows}</div>`);
         layer.on('mouseover', ()=> layer.setStyle({weight:3}));
         layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
       }
@@ -846,124 +835,6 @@
       try{ const odnrResp = await fetch('https://gis2.ohiodnr.gov/ArcGIS/rest/services/OIT_Services/DNR_Fed_Lands_Nav_Base/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson'); const odnrJson = await odnrResp.json(); ohioPublic.addData(odnrJson); console.info('Loaded ODNR fallback layer'); }catch(err){ console.warn('ODNR layer fetch failed', err); }
     }
     loadOhioPublic();
-
-    /*******************
-     * OHIO WATERFOWL ZONES (new)
-     *******************/
-    // Set your PDF path here:
-    const WATERFOWL_PDF_URL = 'Documents/Ohio-Waterfowl-Seasons.pdf'; // <-- change to your real PDF path
-
-    // Optional: put your exact season dates here (by zone). If a zone isn’t listed, popup will show a PDF link.
-    const waterfowlSeasons = {
-      'Lake Erie Marsh Zone': {
-        Duck: 'See PDF',
-        CanadaGoose: 'See PDF',
-        LightGoose: 'See PDF',
-        Youth: 'See PDF',
-        Teal: 'See PDF'
-      },
-      'North Zone': {
-        Duck: 'See PDF',
-        CanadaGoose: 'See PDF',
-        LightGoose: 'See PDF',
-        Youth: 'See PDF',
-        Teal: 'See PDF'
-      },
-      'South Zone': {
-        Duck: 'See PDF',
-        CanadaGoose: 'See PDF',
-        LightGoose: 'See PDF',
-        Youth: 'See PDF',
-        Teal: 'See PDF'
-      }
-    };
-
-    function getZoneName(feat){
-      const p = feat && feat.properties ? feat.properties : {};
-      const candidates = ['ZONE','Zone','zone','NAME','Name','name','WF_ZONE','WFZONE','REGION','Region'];
-      for(const k of candidates){ if(p[k]) return String(p[k]); }
-      // heuristic: look for known words
-      const text = JSON.stringify(p).toUpperCase();
-      if(text.includes('LAKE') && text.includes('MARSH')) return 'Lake Erie Marsh Zone';
-      if(text.includes('NORTH')) return 'North Zone';
-      if(text.includes('SOUTH')) return 'South Zone';
-      return 'Waterfowl Zone';
-    }
-
-    function colorForZone(name){
-      const n = (name||'').toLowerCase();
-      if(n.includes('lake')) return '#0284c7';     // blue
-      if(n.includes('north')) return '#16a34a';    // green
-      if(n.includes('south')) return '#d97706';    // amber
-      return '#db2777';                             // magenta fallback
-    }
-
-    const zoneLabels = L.layerGroup();
-
-    const ohioWaterfowl = L.geoJSON(null, {
-      style: (feat)=> {
-        const nm = getZoneName(feat);
-        const c = colorForZone(nm);
-        return { color:c, weight:2, fillColor:c, fillOpacity:0.15 };
-      },
-      onEachFeature: (feat, layer)=>{
-        const name = getZoneName(feat);
-        // Tooltip on hover
-        layer.bindTooltip(name, { direction:'center', className:'zone-tip', permanent:false, sticky:true });
-
-        // Popup with dates + PDF
-        const d = waterfowlSeasons[name] || null;
-        let html = `<b style="font-size:14px">${name}</b>`;
-        if(d){
-          html += `<div style="margin-top:6px">
-            <div><span style="color:#a3b7a6">Duck:</span> ${d.Duck}</div>
-            <div><span style="color:#a3b7a6">Canada Goose:</span> ${d.CanadaGoose}</div>
-            <div><span style="color:#a3b7a6">Light Goose:</span> ${d.LightGoose}</div>
-            <div><span style="color:#a3b7a6">Youth:</span> ${d.Youth}</div>
-            <div><span style="color:#a3b7a6">Teal:</span> ${d.Teal}</div>
-          </div>`;
-        } else {
-          html += `<div class="tag" style="margin-top:6px">Season dates: see PDF.</div>`;
-        }
-        html += `<div style="margin-top:8px"><a href="${WATERFOWL_PDF_URL}" target="_blank" rel="noopener" style="color:#93c5fd;text-decoration:underline">Open season PDF</a></div>`;
-        layer.bindPopup(html);
-
-        // Add a non-interactive center label
-        try{
-          const center = layer.getBounds().getCenter();
-          const lbl = L.marker(center, {
-            interactive:false,
-            pane:'tooltipPane',
-            icon: L.divIcon({ className:'zone-label', html: name })
-          });
-          zoneLabels.addLayer(lbl);
-        }catch(_){}
-      }
-    });
-
-    async function loadWaterfowlZones(){
-      try{
-        const r = await fetch('ohio_waterfowl_zones.geojson', { cache:'reload' }); // <-- rename if your file differs
-        if(!r.ok) throw new Error('no local geojson');
-        const j = await r.json();
-        ohioWaterfowl.addData(j);
-        refreshZoneLabels();
-      }catch(e){
-        console.warn('Waterfowl zones geojson not found/failed. Ensure ohio_waterfowl_zones.geojson is present.', e);
-      }
-    }
-    loadWaterfowlZones();
-
-    function labelFontForZoom(z){ if(z>=11) return 14; if(z>=9) return 12; if(z>=7) return 10; return 0; } // used by counties originally
-    function refreshZoneLabels(){
-      const fs = labelFontForZoom(map.getZoom());
-      zoneLabels.eachLayer(m=>{
-        const el = m.getElement(); if(!el) return;
-        if(fs===0){ el.style.display='none'; }
-        else { el.style.display='block'; el.style.fontSize = fs+'px'; }
-      });
-    }
-    map.on('zoomend', refreshZoneLabels);
 
     /*******************
      * OHIO COUNTIES + LABELS
@@ -979,6 +850,7 @@
     });
 
     const countyLabels = L.layerGroup();
+    function labelFontForZoom(z){ if(z>=11) return 14; if(z>=9) return 12; if(z>=7) return 10; return 0; }
     function refreshCountyLabels(){ const fs = labelFontForZoom(map.getZoom()); countyLabels.eachLayer(m => { const el = m.getElement(); if(!el) return; if(fs===0){ el.style.display='none'; } else { el.style.display='block'; el.style.fontSize = fs+'px'; } }); }
     function buildCountyLabels(){ countyLabels.clearLayers(); ohioCounties.eachLayer(layer => { try{ const center = layer.getBounds().getCenter(); const name = layer._countyName || 'County'; const lbl = L.marker(center, { interactive:false, pane:'tooltipPane', icon: L.divIcon({ className:'county-label', html: name }) }); countyLabels.addLayer(lbl);}catch(_){ } }); refreshCountyLabels(); if(map.hasLayer(ohioCounties) && !map.hasLayer(countyLabels)) countyLabels.addTo(map); }
     async function loadOhioCounties(){ try{ const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson'; const r = await fetch(url); const j = await r.json(); ohioCounties.addData(j); buildCountyLabels(); }catch(e){ console.warn('Counties layer fetch failed', e); } }
@@ -997,14 +869,7 @@
     /*******************
      * LAYERS CONTROL   *
      *******************/
-    const overlaysForControl = {
-      'Ohio Public Hunting': ohioPublic,
-      'Waterfowl Zones': ohioWaterfowl,
-      'Ohio Counties': ohioCounties,
-      'Hunt Markers': markersLayer,
-      'My Drawings': drawnItems,
-      'My Track': trackLayer
-    };
+    const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
     L.control.layers({ 'Basic':basic, 'Satellite':satellite, 'Topographic':topo }, overlaysForControl, { position:'bottomleft' }).addTo(map);
 
     /*******************
@@ -1046,37 +911,22 @@
     // Overlay toggles in the basemap sheet
     const ovlOhio = document.getElementById('ovlOhio');
     const ovlCounties = document.getElementById('ovlCounties');
-    const ovlWaterfowl = document.getElementById('ovlWaterfowl');
     const ovlDraw = document.getElementById('ovlDraw');
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){
-      ovlOhio.checked = map.hasLayer(ohioPublic);
-      ovlCounties.checked = map.hasLayer(ohioCounties);
-      ovlWaterfowl.checked = map.hasLayer(ohioWaterfowl);
-      ovlDraw.checked = map.hasLayer(drawnItems);
-      ovlMarks.checked = map.hasLayer(markersLayer);
-      ovlTrack.checked = map.hasLayer(trackLayer);
-    }
+    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
     ovlCounties.onchange = ()=> { if(ovlCounties.checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); } else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); } };
-    ovlWaterfowl.onchange = ()=> { if(ovlWaterfowl.checked){ ohioWaterfowl.addTo(map); zoneLabels.addTo(map); refreshZoneLabels(); } else { map.removeLayer(ohioWaterfowl); map.removeLayer(zoneLabels); } };
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
-    map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } if(e.layer===ohioWaterfowl){ zoneLabels.addTo(map); refreshZoneLabels(); } });
-    map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } if(e.layer===ohioWaterfowl){ map.removeLayer(zoneLabels); } });
+    map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
+    map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
 
     // Sheets buttons
     document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
-    const btnMoon = document.getElementById('menuMoon');
-    const btnScore = document.getElementById('menuScore');
-    const btnWaypoints = document.getElementById('menuWaypoints');
-    const btnTrack = document.getElementById('menuTrack');
-    const btnCompass = document.getElementById('menuCompass');
-
     btnMoon.onclick = ()=> openSheet('moon');
     btnScore.onclick = ()=> openSheet('score');
     btnWaypoints.onclick = ()=> openSheet('waypoints');
