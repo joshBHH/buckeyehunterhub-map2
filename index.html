@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
-  <!-- Leaflet.draw -->
+  <!-- Leaflet.draw (kept for shape persistence/events; toolbar removed) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
@@ -151,7 +151,6 @@
       <button id="menuCompass">Compass</button>
       <button id="menuWaypoints">Waypoints</button>
       <button id="menuTrack">Track</button>
-      <button id="menuRadar">Radar</button>
       <button id="toggleBasemap">Basemap</button>
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
@@ -250,23 +249,6 @@
       </div>
     </div>
 
-    <!-- Radar sheet -->
-    <div class="sheet" id="radarSheet" aria-hidden="true">
-      <div class="grab"></div>
-      <h4>Weather Radar</h4>
-      <div class="content">
-        <div class="option"><span>Visible</span><input id="radarToggle" type="checkbox"></div>
-        <div class="option"><span>Source</span>
-          <div>
-            <label style="margin-right:10px"><input type="radio" name="radarSrc" value="rainviewer"> RainViewer</label>
-            <label><input type="radio" name="radarSrc" value="noaa"> NOAA</label>
-          </div>
-        </div>
-        <div class="option"><span>Opacity</span><input id="radarOpacity" type="range" min="0" max="1" step="0.05" value="0.6" style="width:160px"></div>
-        <p class="tag">Tip: Tap the Radar button to toggle visibility quickly; use this sheet to change source & opacity.</p>
-      </div>
-    </div>
-
     <!-- Wind & Scent cone sheet -->
     <div class="sheet" id="windSheet" aria-hidden="true">
       <div class="grab"></div>
@@ -354,8 +336,9 @@
      * DRAWING LAYERS  *
      *******************/
     const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({ position:'topleft', edit:{ featureGroup: drawnItems }, draw:{ circle:true } });
-    map.addControl(drawControl);
+
+    // NOTE: Leaflet.draw toolbar removed per request.
+    // We still keep persistence, labels, and delete-from-our-UI support.
 
     const STORAGE_DRAW = 'bhh_drawings_v6';
 
@@ -414,7 +397,9 @@
     }
     restoreDraw();
 
-    map.on(L.Draw.Event.CREATED, e=>{
+    // We keep handlers for created/edited/deleted in case you add shapes programmatically later.
+    map.on(L.Draw && L.Draw.Event ? L.Draw.Event.CREATED : 'noop', e=>{
+      if(!e.layer) return;
       const layer = e.layer;
       const type = e.layerType || featureTypeFromLayer(layer);
       const suggested = defaultShapeName(type);
@@ -425,8 +410,8 @@
       saveDraw();
       refreshWaypointsUI();
     });
-    map.on(L.Draw.Event.EDITED, e=>{ e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); updatePolylineTotalLabel(l); } }); saveDraw(); refreshWaypointsUI(); });
-    map.on(L.Draw.Event.DELETED, e=>{ e.layers.eachLayer(l=> { removeSegLabels(l); removeTotalLabel(l); }); saveDraw(); refreshWaypointsUI(); });
+    map.on(L.Draw && L.Draw.Event ? L.Draw.Event.EDITED : 'noop', e=>{ if(!e.layers) return; e.layers.eachLayer(l=>{ if(l instanceof L.Polyline && !(l instanceof L.Polygon)) { relabelPolyline(l); updatePolylineTotalLabel(l); } }); saveDraw(); refreshWaypointsUI(); });
+    map.on(L.Draw && L.Draw.Event ? L.Draw.Event.DELETED : 'noop', e=>{ if(!e.layers) return; e.layers.eachLayer(l=> { removeSegLabels(l); removeTotalLabel(l); }); saveDraw(); refreshWaypointsUI(); });
 
     /*******************
      * SEGMENT + TOTAL LABELS FOR POLYLINES
@@ -855,16 +840,6 @@
     loadOhioCounties();
 
     /*******************
-     * RADAR LAYERS     *
-     *******************/
-    const radarRain = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.6, attribution: 'RainViewer' });
-    const radarNoaa = L.tileLayer.wms('https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows?', { layers: 'conus_bref_qcd', format: 'image/png', transparent: true, opacity: 0.6, attribution: 'NOAA/NWS' });
-
-    function setRadarSource(src){ const vis = document.getElementById('radarToggle').checked; map.removeLayer(radarRain); map.removeLayer(radarNoaa); if(!vis) return; if(src==='noaa') { radarNoaa.setOpacity(parseFloat(radarOpacity.value)); radarNoaa.addTo(map); } else { radarRain.setOpacity(parseFloat(radarOpacity.value)); radarRain.addTo(map); } localStorage.setItem('radar_src', src); }
-    function setRadarVisibility(v){ document.getElementById('radarToggle').checked = v; localStorage.setItem('radar_vis', v? '1':'0'); setRadarSource(localStorage.getItem('radar_src')||'rainviewer'); }
-    function setRadarOpacity(val){ const v=parseFloat(val); radarRain.setOpacity(v); radarNoaa.setOpacity(v); localStorage.setItem('radar_opacity', v.toString()); }
-
-    /*******************
      * LAYERS CONTROL   *
      *******************/
     const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
@@ -877,7 +852,6 @@
     const btnLocate  = document.getElementById('menuLocate');
     const btnWaypoints = document.getElementById('menuWaypoints');
     const btnTrack = document.getElementById('menuTrack');
-    const btnRadar = document.getElementById('menuRadar');
     const btnExport = document.getElementById('btnExport');
     const btnImport = document.getElementById('btnImport');
     const btnDelete = document.getElementById('btnDeleteMode');
@@ -885,7 +859,7 @@
     const btnCompass = document.getElementById('menuCompass');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), radar: document.getElementById('radarSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet'), compass: document.getElementById('compassSheet'), wpDetail: document.getElementById('wpDetailSheet') };
+    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet'), compass: document.getElementById('compassSheet'), wpDetail: document.getElementById('wpDetailSheet') };
     function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); } }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
@@ -930,16 +904,6 @@
     btnWaypoints.onclick = ()=> openSheet('waypoints');
     btnTrack.onclick = ()=> openSheet('track');
     btnCompass.onclick = ()=> openSheet('compass');
-
-    // Radar button toggles visibility quickly, then opens sheet
-    const radarToggle = document.getElementById('radarToggle');
-    const radarOpacity = document.getElementById('radarOpacity');
-    const radarSrcRadios = Array.from(document.querySelectorAll('input[name="radarSrc"]'));
-    function restoreRadar(){ const vis = localStorage.getItem('radar_vis')==='1'; const src = localStorage.getItem('radar_src')||'rainviewer'; const op = parseFloat(localStorage.getItem('radar_opacity')||'0.6'); radarToggle.checked = vis; radarOpacity.value = op; const r = radarSrcRadios.find(r=>r.value===src); if(r) r.checked=true; setRadarOpacity(op); setRadarSource(src); }
-    btnRadar.onclick = ()=>{ const wasVis = localStorage.getItem('radar_vis')==='1'; setRadarVisibility(!wasVis); restoreRadar(); openSheet('radar'); };
-    radarToggle.onchange = ()=> setRadarVisibility(radarToggle.checked);
-    radarOpacity.oninput = ()=> setRadarOpacity(radarOpacity.value);
-    radarSrcRadios.forEach(r=> r.addEventListener('change', ()=> setRadarSource(r.value)));
 
     // Field Info toggle & position persistence
     const infoPanel = document.getElementById('infoPanel');
