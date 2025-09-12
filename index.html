@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1a0f" />
   <title>Buckeye Hunter Hub — Mobile Hunting Map</title>
-  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="manifest" href="manifest.webmanifest">
 
   <!-- Leaflet core -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -1083,8 +1083,6 @@
     document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
 
     // Wire overlay toggles that depend on layers defined in Part 4A
-    const ovlMarks = document.getElementById('ovlMarks');
-    const ovlTrack = document.getElementById('ovlTrack');
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
@@ -1099,13 +1097,6 @@
     document.getElementById('wpAddCenter').onclick = ()=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker(map.getCenter(), t, n); refreshWaypointsUI(); wpName.value=''; };
     document.getElementById('wpAddGPS').onclick = ()=>{ if(!navigator.geolocation){ alert('Geolocation not supported'); return; } navigator.geolocation.getCurrentPosition(pos=>{ const t=wpType.value; const n=wpName.value||undefined; addMarker([pos.coords.latitude, pos.coords.longitude], t, n); refreshWaypointsUI(); wpName.value=''; }, err=> alert('Location error: '+err.message), {enableHighAccuracy:true, timeout:8000}); };
 
-    function featureTypeFromLayer(l){
-      if(l instanceof L.Circle) return 'circle';
-      if(l instanceof L.Rectangle) return 'rectangle';
-      if(l instanceof L.Polygon && !(l instanceof L.Rectangle)) return 'polygon';
-      if(l instanceof L.Polyline && !(l instanceof L.Polygon)) return 'polyline';
-      return 'shape';
-    }
     function gatherShapes(){
       const arr=[];
       drawnItems.eachLayer(l=>{
@@ -1320,7 +1311,7 @@
      *******************/
     if('serviceWorker' in navigator){
       window.addEventListener('load', ()=>{
-        navigator.serviceWorker.register('/sw.js').catch(()=>{/* ignore */});
+        navigator.serviceWorker.register('sw.js').catch(()=>{/* ignore */});
       });
     }
   </script>
