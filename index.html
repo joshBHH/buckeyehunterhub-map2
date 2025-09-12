@@ -1,6 +1,8 @@
+<!-- [BHH: HTML START] -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- [BHH: HEAD START] -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1a0f" />
@@ -21,6 +23,7 @@
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 
   <style>
+    /* [BHH: STYLES START] */
     :root{
       --bg:#0b1a0f;        /* deep forest */
       --panel:#101f14;     /* card */
@@ -120,17 +123,23 @@
     }
 
     @supports (height: 100svh){ #map{height:100svh} }
+    /* [BHH: STYLES END] */
   </style>
+  <!-- [BHH: HEAD END] -->
 </head>
 <body>
+  <!-- [BHH: BODY START] -->
   <div id="app">
     <div id="map"></div>
 
+    <!-- [BHH: UI – LOGO START] -->
     <!-- Top-right logo (non-interactive overlay) -->
     <div class="map-logo" aria-label="Buckeye Hunter Hub">
       <img src="Icons/bhh-logo.png" alt="Buckeye Hunter Hub logo"/>
     </div>
+    <!-- [BHH: UI – LOGO END] -->
 
+    <!-- [BHH: UI – INFO PANEL START] -->
     <!-- Field Info panel (hidden by default; draggable) -->
     <section class="panel" id="infoPanel" style="display:none;">
       <h3 id="infoHandle">📋 Field Info</h3>
@@ -141,7 +150,9 @@
       <div class="row"><span>Track Duration</span><strong id="pTrkDur" class="tag">0:00</strong></div>
       <p class="tag">Tip: start the Track Recorder to populate distance & duration.</p>
     </section>
+    <!-- [BHH: UI – INFO PANEL END] -->
 
+    <!-- [BHH: UI – BOTTOM MENU START] -->
     <!-- Bottom main menu (no Radar button) -->
     <nav class="main-menu" id="mainMenu">
       <button id="toggleFieldInfo">Field Info</button>
@@ -158,10 +169,12 @@
       <button id="menuLocate">Locate Me</button>
       <input type="file" id="fileImport" accept=".json,.geojson,application/json,application/geo+json" style="display:none" />
     </nav>
+    <!-- [BHH: UI – BOTTOM MENU END] -->
 
     <!-- Shared backdrop for sheets -->
     <div class="backdrop" id="sheetBackdrop"></div>
 
+    <!-- [BHH: UI – SHEETS START] -->
     <!-- Basemap & Overlays sheet (includes Waterfowl Zones toggle) -->
     <div class="sheet" id="basemapSheet" aria-hidden="true">
       <div class="grab"></div>
@@ -317,12 +330,14 @@
         <p class="tag">Tip: In Waypoints, tap <b>Guide</b> on any item to set the target here.</p>
       </div>
     </div>
+    <!-- [BHH: UI – SHEETS END] -->
 
   </div>
   <script>
     /*******************
      * MAP & BASELAYERS
      *******************/
+    // [BHH: MAP INIT START]
     const map = L.map('map').setView([40.4173, -82.9071], 7);
 
     // MapTiler basemaps (replace key if needed)
@@ -344,10 +359,12 @@
       const k = localStorage.getItem(STORAGE_BASE);
       if(k && baseByKey[k]) setBasemap(k);
     })();
+    // [BHH: MAP INIT END]
 
     /*******************
      * DRAWING LAYERS (toolbar removed, storage intact)
      *******************/
+    // [BHH: DRAW – STORAGE START]
     const drawnItems = new L.FeatureGroup().addTo(map);
     const segmentLabelsGroup = L.layerGroup().addTo(map); // used by distance labels
     const STORAGE_DRAW = 'bhh_drawings_v6';
@@ -450,10 +467,11 @@
       layer._totalLabel = marker;
     }
     function relabelPolyline(layer){ labelPolylineSegments(layer); }
-
+    // [BHH: DRAW – STORAGE END]
     /*******************
      * OVERLAYS: Ohio Public Hunting
      *******************/
+    // [BHH: OVERLAYS – OHIO PUBLIC START]
     const ohioPublic = L.geoJSON(null, {
       style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
       onEachFeature:(feat, layer)=>{
@@ -484,10 +502,12 @@
       }catch(err){ console.warn('ODNR public layer fetch failed', err); }
     }
     loadOhioPublic();
+    // [BHH: OVERLAYS – OHIO PUBLIC END]
 
     /*******************
      * OVERLAYS: Ohio Counties + Labels
      *******************/
+    // [BHH: OVERLAYS – COUNTIES START]
     const ohioCounties = L.geoJSON(null, {
       style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
       onEachFeature: (feat, layer) => {
@@ -535,10 +555,12 @@
     map.on('zoomend', refreshCountyLabels);
     map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
     map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
+    // [BHH: OVERLAYS – COUNTIES END]
 
     /*******************
      * OVERLAYS: Waterfowl Zones (ODNR polygons)
      *******************/
+    // [BHH: OVERLAYS – WATERFOWL ZONES START]
     const waterfowlZones = L.geoJSON(null, {
       style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
       onEachFeature: (feat, layer) => {
@@ -566,10 +588,12 @@
       }
     }
     loadWaterfowlZones();
+    // [BHH: OVERLAYS – WATERFOWL ZONES END]
 
     /*******************
      * OVERLAYS & BASEMAP: Sheet wiring
      *******************/
+    // [BHH: SHEET – BASEMAP & OVERLAYS START]
     // Basemap radios
     const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
     function syncBaseRadio(){
@@ -594,8 +618,8 @@
       ovlCounties.checked  = map.hasLayer(ohioCounties);
       ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
       ovlDraw.checked      = map.hasLayer(drawnItems);
-      ovlMarks.checked     = map.hasLayer(markersLayer);   // markersLayer is declared later (Part 4), but this runs when sheet opens
-      ovlTrack.checked     = map.hasLayer(trackLayer);     // trackLayer is declared later (Part 4), but this runs when sheet opens
+      ovlMarks.checked     = map.hasLayer(markersLayer);   // defined later
+      ovlTrack.checked     = map.hasLayer(trackLayer);     // defined later
     }
 
     ovlOhio.onchange      = ()=> ovlOhio.checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
@@ -605,7 +629,7 @@
     };
     ovlWaterfowl.onchange = ()=> ovlWaterfowl.checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
     ovlDraw.onchange      = ()=> ovlDraw.checked      ? drawnItems.addTo(map)    : map.removeLayer(drawnItems);
-    // ovlMarks & ovlTrack handlers will be wired after those layers are defined in Part 4
+    // ovlMarks & ovlTrack handlers will be wired after those layers are defined
 
     // Make entire .option row toggle the inner input
     document.querySelectorAll('.sheet .option').forEach(opt=>{
@@ -616,9 +640,11 @@
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
       });
     });
+    // [BHH: SHEET – BASEMAP & OVERLAYS END]
     /*******************
      * MARKERS (WAYPOINTS) + PHOTO NOTES
      *******************/
+    // [BHH: WAYPOINTS – DATA START]
     const markersLayer = L.featureGroup().addTo(map);
     const STORAGE_MARK = 'bhh_markers_v4';
     const IS_MOBILE = matchMedia('(max-width:640px)').matches;
@@ -676,10 +702,12 @@
     ;(function restoreMarkers(){ try{ const raw=localStorage.getItem(STORAGE_MARK); if(raw) deserializeMarkers(JSON.parse(raw)); }catch(e){} })();
 
     map.on('click', e=>{ if(!activeType) return; addMarker(e.latlng, activeType); setActiveType(null); refreshWaypointsUI(); });
+    // [BHH: WAYPOINTS – DATA END]
 
     /*******************
      * TRACK RECORDER
      *******************/
+    // [BHH: TRACK START]
     const trackLayer = L.polyline([], { color:'#22d3ee', weight:4, opacity:0.9 }).addTo(map);
     const STORAGE_TRK = 'bhh_track_v1';
     let trackPoints = []; // {lat,lng,t}
@@ -700,10 +728,11 @@
     function exportGPX(){ if(!trackPoints.length){ alert('No track to export'); return; } const name = 'BHH Track ' + new Date(trackPoints[0].t).toISOString().slice(0,10); const head = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"BuckeyeHunterHub\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n<trk><name>${name}</name><trkseg>`; const seg = trackPoints.map(p=>`<trkpt lat=\"${p.lat}\" lon=\"${p.lng}\"><time>${new Date(p.t).toISOString()}</time></trkpt>`).join(''); const tail = `</trkseg></trk></gpx>`; const blob = new Blob([head+seg+tail], {type:'application/gpx+xml'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name.replace(/\s+/g,'_')+'.gpx'; a.click(); URL.revokeObjectURL(url); }
 
     loadTrack();
-
+    // [BHH: TRACK END]
     /*******************
      * WIND (live) + SCENT CONE
      *******************/
+    // [BHH: WIND & SCENT START]
     const btnWind = document.getElementById('menuWind');
     const windText = document.getElementById('windText');
     const windArrow = document.getElementById('windArrow');
@@ -784,9 +813,12 @@
 
     map.on('moveend', ()=>{ const anch = localStorage.getItem('cone_a')||'gps'; if(anch==='center') updateScentCone(); });
     refreshWind(); setInterval(refreshWind, 15*60*1000);
+    // [BHH: WIND & SCENT END]
+
     /*******************
      * SUN & MOON (panel + sheet)
      *******************/
+    // [BHH: SUN & MOON START]
     function updateSun(){
       const c = map.getCenter();
       const now = new Date();
@@ -840,10 +872,11 @@
       }
       document.getElementById('moonContent').innerHTML = html;
     }
-
+    // [BHH: SUN & MOON END]
     /*******************
      * HUNT SCORE (next 48h)
      *******************/
+    // [BHH: HUNT SCORE START]
     const scoreList = document.getElementById('scoreList');
     const scoreRefreshBtn = document.getElementById('scoreRefresh');
     const scoreLocRadios = Array.from(document.querySelectorAll('input[name="scoreLoc"]'));
@@ -907,10 +940,12 @@
       }).join('') || '<p class="tag">No forecast rows.</p>';
     }
     scoreRefreshBtn.onclick = ()=> computeHuntScore();
+    // [BHH: HUNT SCORE END]
 
     /*******************
      * COMPASS + BEARING
      *******************/
+    // [BHH: COMPASS START]
     const compEnable = document.getElementById('compEnable');
     const compHeadingText = document.getElementById('compHeadingText');
     const compTargetSel = document.getElementById('compTarget');
@@ -998,10 +1033,11 @@
     compEnable.onclick = ()=> enableCompass();
     compAnchorRadios.forEach(r=> r.addEventListener('change', ()=> updateGuideLine()));
     map.on('moveend', ()=>{ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
-
+    // [BHH: COMPASS END]
     /*******************
      * LIVE GPS DOT + Locate button
      *******************/
+    // [BHH: GPS START]
     let gpsMarker=null, gpsCircle=null, gpsWatchId=null;
     const gpsIcon = L.divIcon({ className:'', html:'<div class="pulse-dot"></div>', iconSize:[22,22], iconAnchor:[11,11] });
 
@@ -1047,10 +1083,12 @@
         );
       }
     };
+    // [BHH: GPS END]
 
     /*******************
      * SHEETS: open/close + menu wiring
      *******************/
+    // [BHH: SHEET LOGIC START]
     const sheetBg = document.getElementById('sheetBackdrop');
     const sheetMap = {
       basemap: document.getElementById('basemapSheet'),
@@ -1084,13 +1122,15 @@
     document.getElementById('menuCompass').onclick = ()=> openSheet('compass');
     document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
 
-    // Wire overlay toggles that depend on layers defined in Part 4A
+    // Wire overlay toggles that depend on layers defined previously
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
+    // [BHH: SHEET LOGIC END]
 
     /*******************
      * WAYPOINTS manager UI hooks (fly/edit/guide/delete) + details sheet
      *******************/
+    // [BHH: WAYPOINTS – UI HOOKS START]
     const wpList = document.getElementById('wpList');
     const wpSearch = document.getElementById('wpSearch');
     const wpType = document.getElementById('wpType');
@@ -1222,10 +1262,12 @@
       editingWP.bindPopup(markerPopupHTML(editingWP));
       saveMarkers(); refreshWaypointsUI(); closeSheets();
     };
+    // [BHH: WAYPOINTS – UI HOOKS END]
 
     /*******************
      * FIELD INFO: visibility + draggable
      *******************/
+    // [BHH: INFO PANEL LOGIC START]
     const infoPanel = document.getElementById('infoPanel');
     const STORAGE_INFO_VIS = 'ui_info_visible';
     function setInfoVisible(v){ infoPanel.style.display = v? 'block':'none'; localStorage.setItem(STORAGE_INFO_VIS, v? '1':'0'); if(v){ updateSun(); } }
@@ -1249,10 +1291,12 @@
       handle.addEventListener('touchstart',tdown,{passive:false});
     }
     makeDraggable(infoPanel, 'infoHandle', 'ui_info_pos');
+    // [BHH: INFO PANEL LOGIC END]
 
     /*******************
      * EXPORT / IMPORT / DELETE MODE
      *******************/
+    // [BHH: EXPORT/IMPORT START]
     const btnExport = document.getElementById('btnExport');
     const btnImport = document.getElementById('btnImport');
     const btnDelete = document.getElementById('btnDeleteMode');
@@ -1307,15 +1351,20 @@
       r.readAsText(f);
     };
     btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`; };
+    // [BHH: EXPORT/IMPORT END]
 
     /*******************
      * PWA: service worker
      *******************/
+    // [BHH: SERVICE WORKER START]
     if('serviceWorker' in navigator){
       window.addEventListener('load', ()=>{
         navigator.serviceWorker.register('sw.js').catch(()=>{/* ignore */});
       });
     }
+    // [BHH: SERVICE WORKER END]
   </script>
+  <!-- [BHH: BODY END] -->
 </body>
+<!-- [BHH: HTML END] -->
 </html>
