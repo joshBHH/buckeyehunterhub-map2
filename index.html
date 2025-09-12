@@ -819,7 +819,7 @@
     }
     loadOhioPublic();
 
-    /*******************
+        /*******************
      * OHIO COUNTIES + LABELS
      *******************/
     const ohioCounties = L.geoJSON(null, {
@@ -840,72 +840,42 @@
     loadOhioCounties();
 
     /*******************
-     * WATERFOWL ZONES (INLINE)
+     * WATERFOWL ZONES (ODNR polygons)
      *******************/
-    const WATERFOWL_JSON = {
-      "type": "FeatureCollection",
-      "name": "ohio_waterfowl_zones_simplified",
-      "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
-      "features": [
-        {
-          "type": "Feature",
-          "properties": {
-            "Zone_": "Lake Erie Marsh Zone",
-            "DuckSeason": "Oct 18–Nov 2 & Nov 15–Dec 28, 2025",
-            "GooseSeason": "Oct 18–Nov 2 & Nov 15, 2025 – Feb 2, 2026"
-          },
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [-83.25, 41.95], [-82.45, 41.95], [-82.45, 41.45], [-83.25, 41.45], [-83.25, 41.95]
-            ]]
-          }
-        },
-        {
-          "type": "Feature",
-          "properties": {
-            "Zone_": "North Zone",
-            "DuckSeason": "Oct 18–26 & Nov 15, 2025 – Jan 4, 2026",
-            "GooseSeason": "Oct 18–26 & Nov 15, 2025 – Feb 9, 2026"
-          },
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [-84.82, 41.95], [-80.52, 41.95], [-80.52, 40.30], [-84.82, 40.30], [-84.82, 41.95]
-            ]]
-          }
-        },
-        {
-          "type": "Feature",
-          "properties": {
-            "Zone_": "South Zone",
-            "DuckSeason": "Oct 18–27 & Dec 13, 2025 – Jan 31, 2026",
-            "GooseSeason": "Oct 18–27 & Nov 16, 2025 – Feb 9, 2026"
-          },
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [-84.82, 40.30], [-80.52, 40.30], [-80.52, 38.40], [-84.82, 38.40], [-84.82, 40.30]
-            ]]
-          }
-        }
-      ]
-    };
-
-    const waterfowlZones = L.geoJSON(WATERFOWL_JSON, {
-      style: { color:'#0ea5e9', weight:2, fillOpacity:0.12 },
+    const waterfowlZones = L.geoJSON(null, {
+      style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
       onEachFeature: (feat, layer) => {
         const p = feat.properties || {};
-        const name = p.Zone_ || 'Waterfowl Zone';
-        const rows = ['DuckSeason','GooseSeason']
-          .filter(k => p[k])
-          .map(k => `<div><span style="color:#a3b7a6">${k.replace('Season',' Season')}:</span> ${p[k]}</div>`)
-          .join('');
+        const name = p.Zone_ || p.ZONE_NAME || 'Waterfowl Zone';
+        const duck = p.DuckSeason || p.DUCK_SEASON || '';
+        const goose = p.GooseSeason || p.GOOSE_SEASON || '';
+        const rows = [
+          duck ? `<div><span style="color:#a3b7a6">Duck:</span> ${duck}</div>` : '',
+          goose ? `<div><span style="color:#a3b7a6">Goose:</span> ${goose}</div>` : ''
+        ].join('');
         layer.bindPopup(`<b>${name}</b>${rows ? `<div style="margin-top:6px">${rows}</div>` : ''}`);
         layer.on('mouseover', ()=> layer.setStyle({weight:3}));
         layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
       }
     });
+
+    async function loadWaterfowlZones(){
+      try{
+        const url = 'https://gis2.ohiodnr.gov/ArcGIS/rest/services/DOW_Services/Hunting_Regulations/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson';
+        const r = await fetch(url);
+        const j = await r.json();
+        waterfowlZones.addData(j);
+        // Optional: show by default
+        // waterfowlZones.addTo(map);
+      }catch(e){
+        console.warn('Waterfowl zones load failed', e);
+      }
+    }
+    loadWaterfowlZones();
+
+    // Add Waterfowl Zones to Layers control
+    overlaysForControl['Waterfowl Zones'] = waterfowlZones;
+
 
     /*******************
      * LAYERS CONTROL   *
