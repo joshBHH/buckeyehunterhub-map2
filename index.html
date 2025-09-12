@@ -125,9 +125,8 @@
   <div id="app">
     <div id="map"></div>
 
-    <!-- Top-right logo (update src if your filename/path differs) -->
+    <!-- Top-right logo -->
     <div class="map-logo" aria-label="Buckeye Hunter Hub">
-      <!-- Example path; change to your actual logo path -->
       <img src="Icons/bhh-logo.png" alt="Buckeye Hunter Hub logo"/>
     </div>
 
@@ -166,12 +165,14 @@
     <div class="sheet" id="basemapSheet" aria-hidden="true">
       <div class="grab"></div>
       <h4>Basemap</h4>
+      <div class="option" data-radio="basemap" data-value="hybrid"><span>Hybrid (default)</span><input type="radio" name="basemap" value="hybrid"></div>
       <div class="option" data-radio="basemap" data-value="basic"><span>Basic</span><input type="radio" name="basemap" value="basic"></div>
       <div class="option" data-radio="basemap" data-value="satellite"><span>Satellite</span><input type="radio" name="basemap" value="satellite"></div>
       <div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
       <h4 style="margin-top:10px">Overlays</h4>
       <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
       <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
+      <div class="option"><span>Ohio Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
       <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
       <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
@@ -323,23 +324,22 @@
      * MAP & BASELAYERS *
      *******************/
     const map = L.map('map').setView([40.4173, -82.9071], 7);
-    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' }).addTo(map);
+
+    // Basemaps (Hybrid added and set as default)
+    const hybrid = L.tileLayer('https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
+    const basic = L.tileLayer('https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
     const satellite = L.tileLayer('https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' });
     const topo = L.tileLayer('https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler & OpenStreetMap contributors' });
 
-    const baseByKey = { basic, satellite, topo };
+    const baseByKey = { hybrid, basic, satellite, topo };
     const STORAGE_BASE = 'ui_basemap_key';
     function setBasemap(key){ Object.values(baseByKey).forEach(l=> map.removeLayer(l)); baseByKey[key].addTo(map); localStorage.setItem(STORAGE_BASE, key); }
-    (function restoreBasemap(){ const k = localStorage.getItem(STORAGE_BASE); if(k && baseByKey[k]) setBasemap(k); })();
+    (function restoreBasemap(){ const k = localStorage.getItem(STORAGE_BASE); if(k && baseByKey[k]) setBasemap(k); else setBasemap('hybrid'); })();
 
     /*******************
      * DRAWING LAYERS  *
      *******************/
     const drawnItems = new L.FeatureGroup().addTo(map);
-
-    // NOTE: Leaflet.draw toolbar removed per request.
-    // We still keep persistence, labels, and delete-from-our-UI support.
-
     const STORAGE_DRAW = 'bhh_drawings_v6';
 
     function featureTypeFromLayer(l){
@@ -397,7 +397,7 @@
     }
     restoreDraw();
 
-    // We keep handlers for created/edited/deleted in case you add shapes programmatically later.
+    // Safety: if a Draw event is ever fired programmatically, persist like before
     map.on(L.Draw && L.Draw.Event ? L.Draw.Event.CREATED : 'noop', e=>{
       if(!e.layer) return;
       const layer = e.layer;
@@ -840,10 +840,89 @@
     loadOhioCounties();
 
     /*******************
+     * WATERFOWL ZONES (INLINE)
+     *******************/
+    const WATERFOWL_JSON = {
+      "type": "FeatureCollection",
+      "name": "ohio_waterfowl_zones_simplified",
+      "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+      "features": [
+        {
+          "type": "Feature",
+          "properties": {
+            "Zone_": "Lake Erie Marsh Zone",
+            "DuckSeason": "Oct 18–Nov 2 & Nov 15–Dec 28, 2025",
+            "GooseSeason": "Oct 18–Nov 2 & Nov 15, 2025 – Feb 2, 2026"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-83.25, 41.95], [-82.45, 41.95], [-82.45, 41.45], [-83.25, 41.45], [-83.25, 41.95]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "Zone_": "North Zone",
+            "DuckSeason": "Oct 18–26 & Nov 15, 2025 – Jan 4, 2026",
+            "GooseSeason": "Oct 18–26 & Nov 15, 2025 – Feb 9, 2026"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-84.82, 41.95], [-80.52, 41.95], [-80.52, 40.30], [-84.82, 40.30], [-84.82, 41.95]
+            ]]
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": {
+            "Zone_": "South Zone",
+            "DuckSeason": "Oct 18–27 & Dec 13, 2025 – Jan 31, 2026",
+            "GooseSeason": "Oct 18–27 & Nov 16, 2025 – Feb 9, 2026"
+          },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-84.82, 40.30], [-80.52, 40.30], [-80.52, 38.40], [-84.82, 38.40], [-84.82, 40.30]
+            ]]
+          }
+        }
+      ]
+    };
+
+    const waterfowlZones = L.geoJSON(WATERFOWL_JSON, {
+      style: { color:'#0ea5e9', weight:2, fillOpacity:0.12 },
+      onEachFeature: (feat, layer) => {
+        const p = feat.properties || {};
+        const name = p.Zone_ || 'Waterfowl Zone';
+        const rows = ['DuckSeason','GooseSeason']
+          .filter(k => p[k])
+          .map(k => `<div><span style="color:#a3b7a6">${k.replace('Season',' Season')}:</span> ${p[k]}</div>`)
+          .join('');
+        layer.bindPopup(`<b>${name}</b>${rows ? `<div style="margin-top:6px">${rows}</div>` : ''}`);
+        layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+        layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
+      }
+    });
+
+    /*******************
      * LAYERS CONTROL   *
      *******************/
-    const overlaysForControl = { 'Ohio Public Hunting': ohioPublic, 'Ohio Counties': ohioCounties, 'Hunt Markers': markersLayer, 'My Drawings': drawnItems, 'My Track': trackLayer };
-    L.control.layers({ 'Basic':basic, 'Satellite':satellite, 'Topographic':topo }, overlaysForControl, { position:'bottomleft' }).addTo(map);
+    const overlaysForControl = {
+      'Ohio Public Hunting': ohioPublic,
+      'Ohio Counties': ohioCounties,
+      'Ohio Waterfowl Zones': waterfowlZones,
+      'Hunt Markers': markersLayer,
+      'My Drawings': drawnItems,
+      'My Track': trackLayer
+    };
+    L.control.layers(
+      { 'Hybrid':hybrid, 'Basic':basic, 'Satellite':satellite, 'Topographic':topo },
+      overlaysForControl,
+      { position:'bottomleft' }
+    ).addTo(map);
 
     /*******************
      * BOTTOM MENU ACTIONS
@@ -859,8 +938,26 @@
     const btnCompass = document.getElementById('menuCompass');
 
     const sheetBg = document.getElementById('sheetBackdrop');
-    const sheetMap = { basemap: document.getElementById('basemapSheet'), waypoints: document.getElementById('waypointsSheet'), track: document.getElementById('trackSheet'), wind: document.getElementById('windSheet'), moon: document.getElementById('moonSheet'), score: document.getElementById('scoreSheet'), compass: document.getElementById('compassSheet'), wpDetail: document.getElementById('wpDetailSheet') };
-    function openSheet(which){ Object.values(sheetMap).forEach(s=> s.classList.remove('show')); sheetBg.classList.add('show'); sheetMap[which].classList.add('show'); if(which==='waypoints') refreshWaypointsUI(); if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); } if(which==='moon'){ renderMoon(); } if(which==='score'){ computeHuntScore(); } if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); } }
+    const sheetMap = {
+      basemap: document.getElementById('basemapSheet'),
+      waypoints: document.getElementById('waypointsSheet'),
+      track: document.getElementById('trackSheet'),
+      wind: document.getElementById('windSheet'),
+      moon: document.getElementById('moonSheet'),
+      score: document.getElementById('scoreSheet'),
+      compass: document.getElementById('compassSheet'),
+      wpDetail: document.getElementById('wpDetailSheet')
+    };
+    function openSheet(which){
+      Object.values(sheetMap).forEach(s=> s.classList.remove('show'));
+      sheetBg.classList.add('show');
+      sheetMap[which].classList.add('show');
+      if(which==='waypoints') refreshWaypointsUI();
+      if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); }
+      if(which==='moon'){ renderMoon(); }
+      if(which==='score'){ computeHuntScore(); }
+      if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); }
+    }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
@@ -876,20 +973,35 @@
 
     // Basemap sheet wiring
     const radios = Array.from(document.querySelectorAll('input[name="basemap"]'));
-    function syncBaseRadio(){ const k = localStorage.getItem(STORAGE_BASE) || 'basic'; const r = radios.find(r=>r.value===k); if(r) r.checked = true; }
+    function syncBaseRadio(){
+      const k = localStorage.getItem(STORAGE_BASE) || 'hybrid';
+      const r = radios.find(r=>r.value===k); if(r) r.checked = true;
+    }
     btnBasemap.onclick = ()=>{ openSheet('basemap'); };
     radios.forEach(r=> r.addEventListener('change', ()=>{ setBasemap(r.value); }));
 
     // Overlay toggles in the basemap sheet
     const ovlOhio = document.getElementById('ovlOhio');
     const ovlCounties = document.getElementById('ovlCounties');
+    const ovlWaterfowl = document.getElementById('ovlWaterfowl');
     const ovlDraw = document.getElementById('ovlDraw');
     const ovlMarks = document.getElementById('ovlMarks');
     const ovlTrack = document.getElementById('ovlTrack');
 
-    function syncOverlayChecks(){ ovlOhio.checked = map.hasLayer(ohioPublic); ovlCounties.checked = map.hasLayer(ohioCounties); ovlDraw.checked = map.hasLayer(drawnItems); ovlMarks.checked = map.hasLayer(markersLayer); ovlTrack.checked = map.hasLayer(trackLayer); }
+    function syncOverlayChecks(){
+      ovlOhio.checked = map.hasLayer(ohioPublic);
+      ovlCounties.checked = map.hasLayer(ohioCounties);
+      ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
+      ovlDraw.checked = map.hasLayer(drawnItems);
+      ovlMarks.checked = map.hasLayer(markersLayer);
+      ovlTrack.checked = map.hasLayer(trackLayer);
+    }
     ovlOhio.onchange = ()=> ovlOhio.checked ? ohioPublic.addTo(map) : map.removeLayer(ohioPublic);
-    ovlCounties.onchange = ()=> { if(ovlCounties.checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); } else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); } };
+    ovlCounties.onchange = ()=> {
+      if(ovlCounties.checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); }
+      else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); }
+    };
+    ovlWaterfowl.onchange = ()=> ovlWaterfowl.checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
     ovlDraw.onchange = ()=> ovlDraw.checked ? drawnItems.addTo(map) : map.removeLayer(drawnItems);
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
@@ -915,19 +1027,34 @@
     setInfoVisible(getInfoVisible());
 
     // Export / Import / Delete mode (bottom menu)
-    btnExport.onclick = () => { const drawings = JSON.parse(localStorage.getItem(STORAGE_DRAW) || '{}'); const data = { drawings, markers: serializeMarkers(), track: trackPoints }; const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url); };
+    btnExport.onclick = () => {
+      const drawings = JSON.parse(localStorage.getItem(STORAGE_DRAW) || '{}');
+      const data = { drawings, markers: serializeMarkers(), track: trackPoints };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href=url; a.download='buckeyehunterhub-export.json'; a.click(); URL.revokeObjectURL(url);
+    };
     btnImport.onclick = () => fileInput.click();
-    fileInput.onchange = (ev) => { const f = ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = () => { try{ const obj = JSON.parse(r.result);
-        if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
-          localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
-          drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
-        } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
-          L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)});
-          saveDraw();
-        }
-        if(obj.markers) deserializeMarkers(obj.markers);
-        if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); }
-      } catch{ alert('Invalid JSON/GeoJSON file'); } finally { ev.target.value=''; } }; r.readAsText(f); };
+    fileInput.onchange = (ev) => {
+      const f = ev.target.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload = () => {
+        try{
+          const obj = JSON.parse(r.result);
+          if(obj.drawings && (obj.drawings.geojson || obj.drawings.circles)){
+            localStorage.setItem(STORAGE_DRAW, JSON.stringify(obj.drawings));
+            drawnItems.clearLayers(); segmentLabelsGroup.clearLayers(); restoreDraw();
+          } else if(obj.type==='FeatureCollection' || obj.type==='Feature'){
+            L.geoJSON(obj, {onEachFeature:(_,l)=> drawnItems.addLayer(l)});
+            saveDraw();
+          }
+          if(obj.markers) deserializeMarkers(obj.markers);
+          if(obj.track) { trackPoints = obj.track; trackLayer.setLatLngs(trackPoints.map(p=>[p.lat,p.lng])); saveTrack(); }
+        } catch{ alert('Invalid JSON/GeoJSON file'); }
+        finally { ev.target.value=''; }
+      };
+      r.readAsText(f);
+    };
     btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`; };
 
     /*******************
@@ -1137,12 +1264,6 @@
     compEnable.onclick = ()=> enableCompass();
     compAnchorRadios.forEach(r=> r.addEventListener('change', ()=> updateGuideLine()));
     map.on('moveend', ()=>{ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
-
-    /*******************
-     * FIELD INFO draggable wiring done earlier
-     *******************/
-
-    // Draggable Field Info already wired above.
 
     /*******************
      * PWA: register service worker (expects /sw.js on your server)
