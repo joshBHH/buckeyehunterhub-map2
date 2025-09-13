@@ -177,14 +177,10 @@
       <button id="menuMoon">Moon Phases</button>
       <button id="menuScore">Hunt Score</button>
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
-      <button id="menuCompass">Compass</button>
-      <button id="menuWaypoints">Waypoints</button>
-      <button id="menuTrack">Track</button>
       <button id="toggleBasemap">Basemap</button>
       <button id="menuTools">Tools</button>
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
-      <button id="btnDeleteMode">Delete: Off</button>
       <button id="menuLocate">Locate Me</button>
       <input type="file" id="fileImport" accept=".json,.geojson,application/json,application/geo+json" style="display:none" />
     </nav>
@@ -1185,10 +1181,8 @@ window.addEventListener('keydown', (e)=>{
     document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
     document.getElementById('menuMoon').onclick = ()=> openSheet('moon');
     document.getElementById('menuScore').onclick = ()=> openSheet('score');
-    document.getElementById('menuWaypoints').onclick = ()=> openSheet('waypoints');
-    document.getElementById('menuTrack').onclick = ()=> openSheet('track');
-    document.getElementById('menuCompass').onclick = ()=> openSheet('compass');
     document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
+    
     // Open Tools sheet and sync Delete toggle with current state
 document.getElementById('menuTools').onclick = () => {
   const delToggle = document.getElementById('toolDeleteToggle');
@@ -1437,7 +1431,14 @@ toolDeleteToggle.onchange = () => {
       };
       r.readAsText(f);
     };
-    btnDelete.onclick = () => { deleteMode = !deleteMode; btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`; };
+   const btnDelete = document.getElementById('btnDeleteMode'); // keep this
+if (btnDelete) {
+  btnDelete.onclick = () => {
+    deleteMode = !deleteMode;
+    btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
+  };
+}
+
     // [BHH: EXPORT/IMPORT END]
 
     /*******************
