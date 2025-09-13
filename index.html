@@ -163,6 +163,7 @@
       <button id="menuWaypoints">Waypoints</button>
       <button id="menuTrack">Track</button>
       <button id="toggleBasemap">Basemap</button>
+      <button id="menuTools">Tools</button>
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
       <button id="btnDeleteMode">Delete: Off</button>
@@ -191,6 +192,34 @@
       <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
       <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
     </div>
+    
+<!-- Tools sheet -->
+<div class="sheet" id="toolsSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h4>Tools</h4>
+
+  <div class="option" id="toolWaypoints">
+    <span>Waypoints</span>
+    <button class="btn">Open</button>
+  </div>
+
+  <div class="option" id="toolTrack">
+    <span>Track</span>
+    <button class="btn">Open</button>
+  </div>
+
+  <div class="option" id="toolCompass">
+    <span>Compass</span>
+    <button class="btn">Open</button>
+  </div>
+
+  <div class="option">
+    <span>Delete mode</span>
+    <input id="toolDeleteToggle" type="checkbox">
+  </div>
+
+  <p class="tag">Tip: “Delete mode” lets you tap items on the map to remove them.</p>
+</div>
 
     <!-- Waypoints + Shapes manager sheet -->
     <div class="sheet" id="waypointsSheet" aria-hidden="true">
@@ -1092,6 +1121,7 @@
     const sheetBg = document.getElementById('sheetBackdrop');
     const sheetMap = {
       basemap: document.getElementById('basemapSheet'),
+      tools: document.getElementById('toolsSheet'),
       waypoints: document.getElementById('waypointsSheet'),
       track: document.getElementById('trackSheet'),
       wind: document.getElementById('windSheet'),
@@ -1121,6 +1151,25 @@
     document.getElementById('menuTrack').onclick = ()=> openSheet('track');
     document.getElementById('menuCompass').onclick = ()=> openSheet('compass');
     document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
+    // Open Tools sheet and sync Delete toggle with current state
+document.getElementById('menuTools').onclick = () => {
+  const delToggle = document.getElementById('toolDeleteToggle');
+  delToggle.checked = !!deleteMode; // reflect current delete mode
+  openSheet('tools');
+};
+
+// Tools sheet actions
+document.getElementById('toolWaypoints').addEventListener('click', () => openSheet('waypoints'));
+document.getElementById('toolTrack').addEventListener('click', () => openSheet('track'));
+document.getElementById('toolCompass').addEventListener('click', () => openSheet('compass'));
+
+const toolDeleteToggle = document.getElementById('toolDeleteToggle');
+toolDeleteToggle.onchange = () => {
+  // Toggle global delete mode and keep bottom-bar button label in sync
+  deleteMode = toolDeleteToggle.checked;
+  const btnDelete = document.getElementById('btnDeleteMode');
+  if (btnDelete) btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
+};
 
     // Wire overlay toggles that depend on layers defined previously
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
