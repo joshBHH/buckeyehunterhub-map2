@@ -70,6 +70,24 @@
     .sheet{position:fixed;left:0;right:0;bottom:0;z-index:1200;background:var(--panel);border-top:1px solid #203325;border-radius:16px 16px 0 0;box-shadow:var(--shadow);transform:translateY(110%);transition:transform .25s ease}
     .sheet.show{transform:translateY(0)}
     .sheet .grab{width:36px;height:4px;border-radius:999px;background:#2b4231;margin:8px auto}
+    /* Close (×) button for sheets */
+.sheet .close-x{
+  position:absolute;
+  top:8px;
+  right:12px;
+  width:32px;
+  height:32px;
+  border-radius:10px;
+  border:1px solid #25432b;
+  background:#14271a;
+  color:var(--text);
+  font-size:18px;
+  line-height:30px;
+  text-align:center;
+  cursor:pointer;
+}
+.sheet .close-x:active{ transform:translateY(1px); }
+
     .sheet .option{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid #1d3323;cursor:pointer}
     .sheet h4{margin:6px 16px 8px;font-size:14px;color:var(--subtle)}
     .sheet .content{padding:4px 16px 14px}
@@ -1142,6 +1160,26 @@
     }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
+    
+    // Inject a top-right × close button into every sheet and wire Esc-to-close
+(function installSheetCloseButtons(){
+  Object.values(sheetMap).forEach(s=>{
+    if(!s) return;
+    if(!s.querySelector('.close-x')){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'close-x';
+      btn.setAttribute('aria-label', 'Close');
+      btn.innerHTML = '&times;';
+      btn.addEventListener('click', closeSheets);
+      s.appendChild(btn); // absolute-positioned, so DOM position doesn't matter
+    }
+  });
+})();
+
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){ closeSheets(); }
+});
 
     // Bottom menu buttons
     document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
