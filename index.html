@@ -173,10 +173,8 @@
     <!-- [BHH: UI – BOTTOM MENU START] -->
     <!-- Bottom main menu (no Radar button) -->
     <nav class="main-menu" id="mainMenu">
-      <button id="toggleFieldInfo">Field Info</button>
-      <button id="menuMoon">Moon Phases</button>
-      <button id="menuScore">Hunt Score</button>
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
+      <button id="menuAlmanac">Almanac</button>
       <button id="toggleBasemap">Basemap</button>
       <button id="menuTools">Tools</button>
       <button id="btnExport">Export</button>
@@ -325,6 +323,29 @@
         <p class="tag">Length scales with wind speed. Width spreads the cone. Anchor sets the origin.</p>
       </div>
     </div>
+
+    <!-- Almanac sheet -->
+<div class="sheet" id="almanacSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h4>Almanac</h4>
+  <div class="content">
+    <div class="option" id="almOpenScore">
+      <span>Hunt Score</span>
+      <button class="btn">Open</button>
+    </div>
+    <div class="option" id="almOpenMoon">
+      <span>Moon Phases</span>
+      <button class="btn">Open</button>
+    </div>
+    <div class="option">
+      <span>Show Field Info panel</span>
+      <input id="almanacFieldInfo" type="checkbox">
+    </div>
+    <div style="display:flex; justify-content:flex-end; padding:12px 16px">
+      <button class="btn" id="almanacClose">Close</button>
+    </div>
+  </div>
+</div>
 
     <!-- Moon phases sheet -->
     <div class="sheet" id="moonSheet" aria-hidden="true">
@@ -1139,6 +1160,7 @@
       waypoints: document.getElementById('waypointsSheet'),
       track: document.getElementById('trackSheet'),
       wind: document.getElementById('windSheet'),
+      almanac: document.getElementById('almanacSheet'),
       moon: document.getElementById('moonSheet'),
       score: document.getElementById('scoreSheet'),
       compass: document.getElementById('compassSheet'),
@@ -1153,6 +1175,11 @@
       if(which==='moon'){ renderMoon(); }
       if(which==='score'){ computeHuntScore(); }
       if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); }
+      if(which==='almanac'){ 
+  const cb = document.getElementById('almanacFieldInfo');
+  if(cb) cb.checked = (localStorage.getItem('ui_info_visible') === '1');
+}
+
     }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
@@ -1178,10 +1205,27 @@ window.addEventListener('keydown', (e)=>{
 });
 
     // Bottom menu buttons
-    document.getElementById('toggleFieldInfo').onclick = ()=> setInfoVisible(infoPanel.style.display==='none' || infoPanel.style.display==='');
-    document.getElementById('menuMoon').onclick = ()=> openSheet('moon');
-    document.getElementById('menuScore').onclick = ()=> openSheet('score');
     document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
+    // Almanac button + controls
+const btnAlmanac       = document.getElementById('menuAlmanac');
+const almOpenScore     = document.getElementById('almOpenScore');
+const almOpenMoon      = document.getElementById('almOpenMoon');
+const almFieldInfo     = document.getElementById('almanacFieldInfo');
+const almClose         = document.getElementById('almanacClose');
+
+btnAlmanac.onclick = () => {
+  // sync the checkbox to current panel visibility
+  almFieldInfo.checked = (localStorage.getItem('ui_info_visible') === '1');
+  openSheet('almanac');
+};
+
+almOpenScore.onclick = () => openSheet('score');
+almOpenMoon.onclick  = () => openSheet('moon');
+almClose.onclick     = () => closeSheets();
+
+// toggle the Field Info panel from the sheet
+almFieldInfo.onchange = () => setInfoVisible(almFieldInfo.checked);
+
     
     // Open Tools sheet and sync Delete toggle with current state
 document.getElementById('menuTools').onclick = () => {
