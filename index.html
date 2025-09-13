@@ -141,6 +141,26 @@
     }
 
     @supports (height: 100svh){ #map{height:100svh} }
+   
+    /* Floating “BHH Map Layers” button (draggable) */
+#bhhLayersBtn{
+  position:fixed;
+  top:10px;           /* sits near the zoom control */
+  left:58px;          /* just to the right of the zoom buttons */
+  z-index:1300;
+}
+#bhhLayersBtn button{
+  background:#14271a;
+  color:var(--text);
+  border:1px solid #25432b;
+  border-radius:12px;
+  padding:8px 12px;
+  box-shadow:var(--shadow);
+  cursor:grab;
+  white-space:nowrap;
+}
+#bhhLayersBtn button:active{ cursor:grabbing; }
+
     /* [BHH: STYLES END] */
   </style>
   <!-- [BHH: HEAD END] -->
@@ -149,6 +169,11 @@
   <!-- [BHH: BODY START] -->
   <div id="app">
     <div id="map"></div>
+
+    <!-- Floating BHH Map Layers button -->
+<div id="bhhLayersBtn" aria-label="BHH Map Layers">
+  <button id="bhhLayersBtnHandle" type="button">BHH Map Layers</button>
+</div>
 
     <!-- [BHH: UI – LOGO START] -->
     <!-- Top-right logo (non-interactive overlay) -->
@@ -175,7 +200,6 @@
     <nav class="main-menu" id="mainMenu">
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
       <button id="menuAlmanac">Almanac</button>
-      <button id="toggleBasemap">Basemap</button>
       <button id="menuTools">Tools</button>
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
@@ -825,6 +849,7 @@
       }
     }
 
+    document.getElementById('bhhLayersBtnHandle').onclick = ()=> openSheet('basemap');
     const windRefreshBtn = document.getElementById('windRefresh');
     const coneToggle = document.getElementById('coneToggle');
     const coneWidth = document.getElementById('coneWidth');
@@ -1209,8 +1234,7 @@ window.addEventListener('keydown', (e)=>{
   if(e.key === 'Escape'){ closeSheets(); }
 });
 
-    // Bottom menu buttons
-    document.getElementById('toggleBasemap').onclick = ()=> openSheet('basemap');
+
     // Almanac button + controls
 const btnAlmanac       = document.getElementById('menuAlmanac');
 const almOpenScore     = document.getElementById('almOpenScore');
@@ -1421,6 +1445,8 @@ toolDeleteToggle.onchange = () => {
       handle.addEventListener('touchstart',tdown,{passive:false});
     }
     makeDraggable(infoPanel, 'infoHandle', 'ui_info_pos');
+    makeDraggable(document.getElementById('bhhLayersBtn'), 'bhhLayersBtnHandle', 'ui_layers_btn_pos');
+
     // [BHH: INFO PANEL LOGIC END]
 
     /*******************
