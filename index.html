@@ -1380,7 +1380,6 @@ toolDeleteToggle.onchange = () => {
     // [BHH: EXPORT/IMPORT START]
     const btnExport = document.getElementById('btnExport');
     const btnImport = document.getElementById('btnImport');
-    const btnDelete = document.getElementById('btnDeleteMode');
     const fileInput = document.getElementById('fileImport');
 
     btnExport.onclick = () => {
@@ -1431,12 +1430,7 @@ toolDeleteToggle.onchange = () => {
       };
       r.readAsText(f);
     };
-   const btnDelete = document.getElementById('btnDeleteMode'); // keep this
-if (btnDelete) {
-  btnDelete.onclick = () => {
-    deleteMode = !deleteMode;
-    btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
-  };
+
 }
 
     // [BHH: EXPORT/IMPORT END]
