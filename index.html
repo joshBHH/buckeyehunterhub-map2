@@ -238,6 +238,14 @@ Code as of 9-27-2025
   <p class="tag" style="margin-top:6px">Changing state reloads the overlays for that state.</p>
 </div>
 
+      <h4>State</h4>
+<div class="content" style="padding-top:0;padding-bottom:8px">
+  <select id="stateSelect">
+    <option value="OH" selected>Ohio</option>
+    <!-- more states can be added later -->
+  </select>
+</div>
+
 <h4 style="margin-top:10px">Overlays</h4>
 <div class="option"><span>Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
 <div class="option"><span>Counties</span><input id="ovlCounties" type="checkbox"></div>
@@ -825,6 +833,20 @@ $('ovlDraw').onchange      = () => $('ovlDraw').checked      ? drawnItems.addTo(
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
       });
     });
+
+    // --- Part 3a: State selector (UI only; Ohio is current default) ---
+const stateSelect = document.getElementById('stateSelect');
+if(stateSelect){
+  stateSelect.addEventListener('change', () => {
+    const st = stateSelect.value;
+    // For now we only have Ohio layers loaded.
+    // When we add more states, this is where we’ll swap layer loaders.
+    // Keep the overlay checkboxes in sync whenever state changes:
+    syncOverlayChecks();
+  });
+}
+
+    
     // [BHH: SHEET – BASEMAP & OVERLAYS END]
     /*******************
      * MARKERS (WAYPOINTS) + PHOTO NOTES
