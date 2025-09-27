@@ -1,5 +1,3 @@
-Code as of 9-27-2025
-
 <!-- [BHH: HTML START] -->
 <!DOCTYPE html>
 <html lang="en">
@@ -223,37 +221,19 @@ Code as of 9-27-2025
     <!-- Basemap & Overlays sheet (includes Waterfowl Zones toggle) -->
     <div class="sheet" id="basemapSheet" aria-hidden="true">
       <div class="grab"></div>
-<h4>Basemap</h4>
-<div class="option" data-radio="basemap" data-value="basic"><span>Basic</span><input type="radio" name="basemap" value="basic"></div>
-<div class="option" data-radio="basemap" data-value="satellite"><span>Satellite</span><input type="radio" name="basemap" value="satellite"></div>
-<div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
-<div class="option" data-radio="basemap" data-value="hybrid"><span>Hybrid</span><input type="radio" name="basemap" value="hybrid"></div>
-
-<h4 style="margin-top:10px">State</h4>
-<div class="content">
-  <select id="stateSelect">
-    <option value="OH">Ohio</option>
-    <!-- More states coming soon -->
-  </select>
-  <p class="tag" style="margin-top:6px">Changing state reloads the overlays for that state.</p>
-</div>
-
-      <h4>State</h4>
-<div class="content" style="padding-top:0;padding-bottom:8px">
-  <select id="stateSelect">
-    <option value="OH" selected>Ohio</option>
-    <!-- more states can be added later -->
-  </select>
-</div>
-
-<h4 style="margin-top:10px">Overlays</h4>
-<div class="option"><span>Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
-<div class="option"><span>Counties</span><input id="ovlCounties" type="checkbox"></div>
-<div class="option"><span>Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
-<div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
-<div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
-<div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
-
+      <h4>Basemap</h4>
+      <div class="option" data-radio="basemap" data-value="basic"><span>Basic</span><input type="radio" name="basemap" value="basic"></div>
+      <div class="option" data-radio="basemap" data-value="satellite"><span>Satellite</span><input type="radio" name="basemap" value="satellite"></div>
+      <div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
+      <div class="option" data-radio="basemap" data-value="hybrid"><span>Hybrid</span><input type="radio" name="basemap" value="hybrid"></div>
+      <h4 style="margin-top:10px">Overlays</h4>
+      <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
+      <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
+      <div class="option"><span>Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
+      <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
+      <div class="option"><span>Hunt Markers</span><input id="ovlMarks" type="checkbox"></div>
+      <div class="option"><span>My Track</span><input id="ovlTrack" type="checkbox"></div>
+    </div>
     
 <!-- Tools sheet -->
 <div class="sheet" id="toolsSheet" aria-hidden="true">
@@ -473,35 +453,6 @@ Code as of 9-27-2025
       const k = localStorage.getItem(STORAGE_BASE);
       if(k && baseByKey[k]) setBasemap(k);
     })();
-
-    // --- State selector (persist + center) ---
-const STORAGE_STATE = 'ui_state_code';
-const STATE_CFG = {
-  OH: { center: [40.4173, -82.9071], zoom: 7 },
-  // more states later
-};
-
-function getState(){ return localStorage.getItem(STORAGE_STATE) || 'OH'; }
-function setState(code){
-  const prev = getState();
-  localStorage.setItem(STORAGE_STATE, code);
-  const sel = document.getElementById('stateSelect');
-  if(sel && sel.value !== code) sel.value = code;
-  // Recenter if we have a suggested view
-  const cfg = STATE_CFG[code];
-  if(cfg) map.setView(cfg.center, cfg.zoom);
-  // Load overlays for the selected state
-  updateOverlaysForState(code);
-  // Keep current overlay toggles “on/off” state the same, just refresh layers’ data
-  syncOverlayChecks?.();
-}
-
-// On open, populate selector to saved state
-document.addEventListener('DOMContentLoaded', ()=>{
-  const sel = document.getElementById('stateSelect');
-  if(sel){ sel.value = getState(); sel.onchange = (e)=> setState(e.target.value); }
-});
-
     // [BHH: MAP INIT END]
 
     /*******************
@@ -644,9 +595,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         ohioPublic.addData(odnrJson);
       }catch(err){ console.warn('ODNR public layer fetch failed', err); }
     }
-    // Initial state + overlays
-setState(getState());
-
+    loadOhioPublic();
     // [BHH: OVERLAYS – OHIO PUBLIC END]
 
     /*******************
@@ -696,14 +645,10 @@ setState(getState());
         buildCountyLabels();
       }catch(e){ console.warn('Counties layer fetch failed', e); }
     }
-    // Initial state + overlays
-setState(getState());
-
+    loadOhioCounties();
     map.on('zoomend', refreshCountyLabels);
     map.on('overlayadd', (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
     map.on('overlayremove', (e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
-
-    
     // [BHH: OVERLAYS – COUNTIES END]
 
     /*******************
@@ -736,39 +681,8 @@ setState(getState());
         console.warn('Waterfowl zones load failed', e);
       }
     }
-    // Initial state + overlays
-setState(getState());
-
+    loadWaterfowlZones();
     // [BHH: OVERLAYS – WATERFOWL ZONES END]
-
-    // --- State-aware wrappers (Part 1 / 2 / 3 pattern) ---
-async function loadPublicHunting(state){
-  ohioPublic.clearLayers();
-  if(state === 'OH') { await loadOhioPublic(); }
-  else { /* other states later */ }
-}
-
-async function loadCounties(state){
-  ohioCounties.clearLayers();
-  countyLabels.clearLayers();
-  if(state === 'OH') { await loadOhioCounties(); buildCountyLabels(); refreshCountyLabels(); }
-  else { /* other states later */ }
-}
-
-async function loadWaterfowl(state){
-  waterfowlZones.clearLayers();
-  if(state === 'OH') { await loadWaterfowlZones(); }
-  else { /* other states later */ }
-}
-
-// --- Single entry point to (re)load everything for a state ---
-async function updateOverlaysForState(state){
-  await Promise.allSettled([
-    loadPublicHunting(state),
-    loadCounties(state),
-    loadWaterfowl(state)
-  ]);
-}
 
     /*******************
      * OVERLAYS & BASEMAP: Sheet wiring
@@ -784,36 +698,23 @@ async function updateOverlaysForState(state){
     radios.forEach(r=> r.addEventListener('change', ()=> setBasemap(r.value)));
     syncBaseRadio();
 
-// Overlay checkboxes (safe getters to avoid TDZ issues)
-function $(id){ return document.getElementById(id); }
-function syncOverlayChecks(){
-  const has = (layer) => layer && map.hasLayer(layer);
-  const elOhio      = $('ovlOhio');
-  const elCounties  = $('ovlCounties');
-  const elWaterfowl = $('ovlWaterfowl');
-  const elDraw      = $('ovlDraw');
-  const elMarks     = $('ovlMarks');
-  const elTrack     = $('ovlTrack');
-  if(!elOhio) return; // sheet not in DOM yet
+    // Overlay checkboxes
+    const ovlOhio      = document.getElementById('ovlOhio');
+    const ovlCounties  = document.getElementById('ovlCounties');
+    const ovlWaterfowl = document.getElementById('ovlWaterfowl');
+    const ovlDraw      = document.getElementById('ovlDraw');
+    const ovlMarks     = document.getElementById('ovlMarks');
+    const ovlTrack     = document.getElementById('ovlTrack');
 
-  elOhio.checked      = has(ohioPublic);
-  elCounties.checked  = has(ohioCounties);
-  elWaterfowl.checked = has(waterfowlZones);
-  elDraw.checked      = has(drawnItems);
-  if(elMarks) elMarks.checked = has(markersLayer);
-  if(elTrack) elTrack.checked = has(trackLayer);
-}
-
-// Hook up the checkbox handlers using on-demand lookups
-$('ovlOhio').onchange      = () => $('ovlOhio').checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
-$('ovlCounties').onchange  = () => {
-  if($('ovlCounties').checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); }
-  else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); }
-};
-$('ovlWaterfowl').onchange = () => $('ovlWaterfowl').checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
-$('ovlDraw').onchange      = () => $('ovlDraw').checked      ? drawnItems.addTo(map)    : map.removeLayer(drawnItems);
-// ovlMarks & ovlTrack are wired later (after those layers exist)
-
+    // These layers get toggled by the sheet
+    function syncOverlayChecks(){
+      ovlOhio.checked      = map.hasLayer(ohioPublic);
+      ovlCounties.checked  = map.hasLayer(ohioCounties);
+      ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
+      ovlDraw.checked      = map.hasLayer(drawnItems);
+      ovlMarks.checked     = map.hasLayer(markersLayer);   // defined later
+      ovlTrack.checked     = map.hasLayer(trackLayer);     // defined later
+    }
 
     ovlOhio.onchange      = ()=> ovlOhio.checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
     ovlCounties.onchange  = ()=> {
@@ -833,20 +734,6 @@ $('ovlDraw').onchange      = () => $('ovlDraw').checked      ? drawnItems.addTo(
         if(input.type==='checkbox'){ input.checked = !input.checked; input.dispatchEvent(new Event('change', {bubbles:true})); }
       });
     });
-
-    // --- Part 3a: State selector (UI only; Ohio is current default) ---
-const stateSelect = document.getElementById('stateSelect');
-if(stateSelect){
-  stateSelect.addEventListener('change', () => {
-    const st = stateSelect.value;
-    // For now we only have Ohio layers loaded.
-    // When we add more states, this is where we’ll swap layer loaders.
-    // Keep the overlay checkboxes in sync whenever state changes:
-    syncOverlayChecks();
-  });
-}
-
-    
     // [BHH: SHEET – BASEMAP & OVERLAYS END]
     /*******************
      * MARKERS (WAYPOINTS) + PHOTO NOTES
@@ -1390,10 +1277,9 @@ toolDeleteToggle.onchange = () => {
   if (btnDelete) btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
 };
 
-// Wire overlay toggles that depend on layers defined previously
-$('ovlMarks').onchange = ()=> $('ovlMarks').checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
-$('ovlTrack').onchange = ()=> $('ovlTrack').checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
-
+    // Wire overlay toggles that depend on layers defined previously
+    ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
+    ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
     // [BHH: SHEET LOGIC END]
 
     /*******************
