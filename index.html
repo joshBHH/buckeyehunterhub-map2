@@ -776,23 +776,36 @@ async function updateOverlaysForState(state){
     radios.forEach(r=> r.addEventListener('change', ()=> setBasemap(r.value)));
     syncBaseRadio();
 
-    // Overlay checkboxes
-    const ovlOhio      = document.getElementById('ovlOhio');
-    const ovlCounties  = document.getElementById('ovlCounties');
-    const ovlWaterfowl = document.getElementById('ovlWaterfowl');
-    const ovlDraw      = document.getElementById('ovlDraw');
-    const ovlMarks     = document.getElementById('ovlMarks');
-    const ovlTrack     = document.getElementById('ovlTrack');
+// Overlay checkboxes (safe getters to avoid TDZ issues)
+function $(id){ return document.getElementById(id); }
+function syncOverlayChecks(){
+  const has = (layer) => layer && map.hasLayer(layer);
+  const elOhio      = $('ovlOhio');
+  const elCounties  = $('ovlCounties');
+  const elWaterfowl = $('ovlWaterfowl');
+  const elDraw      = $('ovlDraw');
+  const elMarks     = $('ovlMarks');
+  const elTrack     = $('ovlTrack');
+  if(!elOhio) return; // sheet not in DOM yet
 
-    // These layers get toggled by the sheet
-    function syncOverlayChecks(){
-      ovlOhio.checked      = map.hasLayer(ohioPublic);
-      ovlCounties.checked  = map.hasLayer(ohioCounties);
-      ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
-      ovlDraw.checked      = map.hasLayer(drawnItems);
-      ovlMarks.checked     = map.hasLayer(markersLayer);   // defined later
-      ovlTrack.checked     = map.hasLayer(trackLayer);     // defined later
-    }
+  elOhio.checked      = has(ohioPublic);
+  elCounties.checked  = has(ohioCounties);
+  elWaterfowl.checked = has(waterfowlZones);
+  elDraw.checked      = has(drawnItems);
+  if(elMarks) elMarks.checked = has(markersLayer);
+  if(elTrack) elTrack.checked = has(trackLayer);
+}
+
+// Hook up the checkbox handlers using on-demand lookups
+$('ovlOhio').onchange      = () => $('ovlOhio').checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
+$('ovlCounties').onchange  = () => {
+  if($('ovlCounties').checked){ ohioCounties.addTo(map); countyLabels.addTo(map); refreshCountyLabels(); }
+  else { map.removeLayer(ohioCounties); map.removeLayer(countyLabels); }
+};
+$('ovlWaterfowl').onchange = () => $('ovlWaterfowl').checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
+$('ovlDraw').onchange      = () => $('ovlDraw').checked      ? drawnItems.addTo(map)    : map.removeLayer(drawnItems);
+// ovlMarks & ovlTrack are wired later (after those layers exist)
+
 
     ovlOhio.onchange      = ()=> ovlOhio.checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
     ovlCounties.onchange  = ()=> {
@@ -1355,9 +1368,10 @@ toolDeleteToggle.onchange = () => {
   if (btnDelete) btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
 };
 
-    // Wire overlay toggles that depend on layers defined previously
-    ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
-    ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
+// Wire overlay toggles that depend on layers defined previously
+$('ovlMarks').onchange = ()=> $('ovlMarks').checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
+$('ovlTrack').onchange = ()=> $('ovlTrack').checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
+
     // [BHH: SHEET LOGIC END]
 
     /*******************
