@@ -1383,55 +1383,7 @@ toolDeleteToggle.onchange = () => {
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
 
-    // [BHH: STATE – LOGIC START]
-const STORAGE_STATE = 'bhh_state_code';
-
-const stateBadge  = document.getElementById('stateBadge');
-const stateSelect = document.getElementById('stateSelect');
-const stateReset  = document.getElementById('stateReset');
-
-function getState(){
-  return localStorage.getItem(STORAGE_STATE) || 'OH';
-}
-function setState(code, save=true){
-  const c = (code || 'OH').toUpperCase();
-  if(save) localStorage.setItem(STORAGE_STATE, c);
-  // update badge text
-  if(stateBadge){
-    const span = stateBadge.querySelector('span');
-    if(span) span.textContent = `State: ${c}`;
-  }
-  // (You can add per-state logic here later, e.g. load different overlays)
-}
-function syncStateUI(){
-  const c = getState();
-  // badge text
-  const span = stateBadge && stateBadge.querySelector('span');
-  if(span) span.textContent = `State: ${c}`;
-  // select value
-  if(stateSelect) stateSelect.value = c;
-}
-
-// open State sheet from the badge and menu button
-document.getElementById('menuState').onclick = () => openSheet('state');
-stateBadge && stateBadge.addEventListener('click', () => openSheet('state'));
-
-// sheet controls
-stateSelect && stateSelect.addEventListener('change', () => {
-  setState(stateSelect.value);
-});
-stateReset && stateReset.addEventListener('click', () => {
-  setState('OH');
-  syncStateUI();
-  closeSheets();
-});
-
-// init once
-syncStateUI();
-// [BHH: STATE – LOGIC END]
-
-    // [BHH: SHEET LOGIC END]
-
+  
     /*******************
      * WAYPOINTS manager UI hooks (fly/edit/guide/delete) + details sheet
      *******************/
