@@ -485,83 +485,173 @@ if(stateSelectEl){
     
     // [BHH: MAP INIT END]
 
-/*******************
- * OVERLAY LAYERS (constructors)
- *******************/
-
-// 1) Public hunting (OH for now)
+<script>
+// ================================
+// OVERLAY LAYERS (constructors)
+// ================================
+/* Public Hunting (purple + rich popup) */
 const ohioPublic = L.geoJSON(null, {
-  style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
-  onEachFeature: (feat, layer) => {
-    const p = feat.properties || {};
-    const name = p.AREA_NAME || p.NAME || 'Public Hunting';
-    layer.bindPopup(`<b>${name}</b>`);
-    layer.on('mouseover', () => layer.setStyle({ weight:3 }));
-    layer.on('mouseout',  () => layer.setStyle({ weight:2 }));
+  style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
+  onEachFeature:(feat, layer)=>{
+    const p = feat?.properties ?? {};
+    // prefer human-friendly keys when present
+    const preferred = [
+      'NAME','AREA_NAME','UNIT_NAME','PARK_NAME','SITE_NAME',
+      'COUNTY','ACRES','AREA_ACRES','OWNER','AGENCY','STATUS','TYPE','ACCESS','SEASON'
+    ];
+    const headerKey = preferred.find(k => k in p) || Object.keys(p)[0];
+    const name = headerKey ? String(p[headerKey]) : 'Public Hunting Area';
+
+    const keysOrdered = [...new Set([
+      ...preferred.filter(k => k in p),
+      ...Object.keys(p)
+    ])].slice(0, 14);
+
+    const rows = keysOrdered.map(k =>
+      `<div><span style="color:#a3b7a6">${k}:</span> ${String(p[k])}</div>`
+    ).join('');
+
+    layer.bindPopup(`<b>${name}</b><div style="margin-top:6px">${rows}</div>`);
+    layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+    layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
   }
 });
 
-// 2) Counties + labels
+/* Counties (outline) */
 const ohioCounties = L.geoJSON(null, {
-  style: { color:'#eab308', weight:1.5, fillOpacity:0.05 }
+  style: { color:'#94a3b8', weight:1, fill:false, opacity:0.9 },
+  onEachFeature: (feat, layer) => {
+    const name = (feat.properties && (feat.properties.County_Name || feat.properties.COUNTY_NAME || feat.properties.NAME)) || 'County';
+    layer._countyName = String(name);
+    layer.on('mouseover', ()=> layer.setStyle({ weight:2 }));
+    layer.on('mouseout',  ()=> layer.setStyle({ weight:1 }));
+  }
 });
-const countyLabels = L.layerGroup();
 
+/* County name labels */
+const countyLabels = L.layerGroup();
 function buildCountyLabels(){
   countyLabels.clearLayers();
-  ohioCounties.eachLayer(l=>{
-    const name = l.feature?.properties?.County_Name || l.feature?.properties?.NAME || 'County';
-    const c = l.getBounds ? l.getBounds().getCenter() : null;
-    if(!c) return;
-    L.marker(c, {
-      interactive:false,
-      icon: L.divIcon({
-        className:'',
-        html:`<div class="county-label">${name}</div>`
-      })
-    }).addTo(countyLabels);
+  ohioCounties.eachLayer(layer => {
+    try{
+      const center = layer.getBounds().getCenter();
+      const name = layer._countyName || 'County';
+      countyLabels.addLayer(L.marker(center, {
+        interactive:false,
+        pane:'tooltipPane',
+        icon: L.divIcon({ className:'', html: `<div class="county-label">${name}</div>` })
+      }));
+    }catch{}
   });
 }
-function refreshCountyLabels(){ buildCountyLabels(); }
+function refreshCountyLabels(){
+  const z = map.getZoom();
+  const fs = z>=11?14 : z>=9?12 : z>=7?10 : 0;
+  countyLabels.eachLayer(m=>{
+    const el = m.getElement?.();
+    if(!el) return;
+    el.style.display = fs? 'block':'none';
+    if(fs) el.style.fontSize = fs+'px';
+  });
+}
+map.on('zoomend', refreshCountyLabels);
+map.on('overlayadd',   (e)=>{ if(e.layer===ohioCounties){ countyLabels.addTo(map); refreshCountyLabels(); } });
+map.on('overlayremove',(e)=>{ if(e.layer===ohioCounties){ map.removeLayer(countyLabels); } });
 
-// 3) Waterfowl zones (with stale-year warning in popup)
+/* Waterfowl Zones (green) — keep dates from service */
 const waterfowlZones = L.geoJSON(null, {
   style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
   onEachFeature: (feat, layer) => {
-    const p = feat.properties || {};
+    const p = feat?.properties ?? {};
     const name  = p.Zone_ || p.ZONE_NAME || 'Waterfowl Zone';
-    const duck  = p.DuckSeason || p.DUCK_SEASON || '';
+    const duck  = p.DuckSeason  || p.DUCK_SEASON  || '';
     const goose = p.GooseSeason || p.GOOSE_SEASON || '';
-
-    const now = new Date();
-    const y = now.getFullYear();
-    const allowed = new Set([y, y + 1]);
-    const yearsIn = (txt) => (String(txt).match(/\b(20\d{2})\b/g) || []).map(n => parseInt(n, 10));
-    const fresh = (txt) => {
-      const yrs = yearsIn(txt);
-      if (yrs.length === 0) return true;
-      return yrs.some(yr => allowed.has(yr));
-    };
-
-    const row = (label, val) => {
-      if (!val) return '';
-      const ok = fresh(val);
-      const warn = ok ? '' : ` <span style="color:#f59e0b">⚠︎ stale</span>`;
-      return `<div><span style="color:#a3b7a6">${label}:</span> ${val}${warn}</div>`;
-    };
-
-    const regsUrl = 'https://ohiodnr.gov/discover-and-learn/land-water/hunting-resources/hunting-regulations';
-    const body = [
-      row('Duck', duck),
-      row('Goose', goose),
-      `<div style="margin-top:6px"><a href="${regsUrl}" target="_blank" rel="noopener">Check current regulations ↗</a></div>`
+    const rows = [
+      duck  ? `<div><span style="color:#a3b7a6">Duck:</span> ${duck}</div>`   : '',
+      goose ? `<div><span style="color:#a3b7a6">Goose:</span> ${goose}</div>` : ''
     ].join('');
-
-    layer.bindPopup(`<b>${name}</b>${body ? `<div style="margin-top:6px">${body}</div>` : ''}`);
-    layer.on('mouseover', () => layer.setStyle({ weight: 3 }));
-    layer.on('mouseout',  () => layer.setStyle({ weight: 2 }));
+    layer.bindPopup(`<b>${name}</b>${rows ? `<div style="margin-top:6px">${rows}</div>` : ''}`);
+    layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+    layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
   }
 });
+
+
+// ================================
+// PART 1: Public Hunting (per-state)
+// ================================
+async function loadPublicHunting(state){
+  ohioPublic.clearLayers();
+  if(state === 'OH'){
+    // Prefer local snapshot if you keep one around (fast, offline)
+    try{
+      const local = await fetch('ohio_public_hunting.geojson', {cache:'reload'});
+      if(local.ok){
+        ohioPublic.addData(await local.json());
+        return;
+      }
+    }catch(_){}
+    // Fallback: ODNR service
+    try{
+      const r = await fetch('https://gis2.ohiodnr.gov/ArcGIS/rest/services/OIT_Services/DNR_Fed_Lands_Nav_Base/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson');
+      ohioPublic.addData(await r.json());
+    }catch(err){ console.warn('OH public layer fetch failed', err); }
+  } else {
+    console.info(`Public hunting overlay not yet implemented for ${state}.`);
+  }
+}
+
+// ================================
+// PART 2: Counties (per-state)
+// ================================
+async function loadCounties(state){
+  ohioCounties.clearLayers();
+  countyLabels.clearLayers();
+  if(state === 'OH'){
+    try{
+      const url = 'https://gis.dot.state.oh.us/arcgis/rest/services/Basemap/ODOT_Basemap/MapServer/165/query?where=1%3D1&outFields=County_Name&outSR=4326&f=geojson';
+      const r = await fetch(url);
+      ohioCounties.addData(await r.json());
+      buildCountyLabels();
+      refreshCountyLabels();
+    }catch(e){ console.warn('Counties layer fetch failed', e); }
+  } else {
+    console.info(`Counties overlay not yet implemented for ${state}.`);
+  }
+}
+
+// ================================
+// PART 3: Waterfowl Zones (per-state)
+// ================================
+async function loadWaterfowlZones(state){
+  waterfowlZones.clearLayers();
+  if(state === 'OH'){
+    try{
+      // cache-bust to avoid stale responses
+      const url = `https://gis2.ohiodnr.gov/ArcGIS/rest/services/DOW_Services/Hunting_Regulations/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&_=${Date.now()}`;
+      const r = await fetch(url);
+      waterfowlZones.addData(await r.json());
+    }catch(e){
+      console.warn('Waterfowl zones load failed', e);
+    }
+  } else {
+    console.info(`Waterfowl zones not yet implemented for ${state}.`);
+  }
+}
+
+// ================================
+// STATE CHANGE HOOK + single init
+// ================================
+async function updateOverlaysForState(stateCode){
+  await Promise.allSettled([
+    loadPublicHunting(stateCode),
+    loadCounties(stateCode),
+    loadWaterfowlZones(stateCode)
+  ]);
+}
+updateOverlaysForState(getState());
+</script>
+
 
     
     /*******************
