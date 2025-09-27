@@ -1476,10 +1476,10 @@ function setState(code, save = true) {
   if (save) localStorage.setItem(STORAGE_STATE, c);
   syncStateUI();
   onStateChanged();
-  // if Public Hunting is on, swap the layer to match the new state
+}
+     // if Public Hunting is on, swap the layer to match the new state
 if (typeof ovlPublic !== 'undefined' && ovlPublic && ovlPublic.checked) {
   applyPublicLayer();
-}
 
 }
 
