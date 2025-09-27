@@ -185,10 +185,11 @@
 
     <!-- [BHH: UI – STATE BADGE START] -->
 <div id="stateBadge" aria-live="polite"
-     style="position:fixed;left:12px;top:12px;z-index:1300;background:#14271a;border:1px solid #25432b;border-radius:10px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:13px;color:#e7f1e8">
+     style="position:fixed;left:12px;top:120px;z-index:1300;background:#14271a;border:1px solid #25432b;border-radius:10px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:13px;color:#e7f1e8;cursor:grab">
   State: <strong id="stateBadgeText">--</strong>
 </div>
 <!-- [BHH: UI – STATE BADGE END] -->
+
 
 
     <!-- [BHH: UI – INFO PANEL START] -->
@@ -1518,6 +1519,8 @@ toolDeleteToggle.onchange = () => {
     }
     makeDraggable(infoPanel, 'infoHandle', 'ui_info_pos');
     makeDraggable(document.getElementById('bhhLayersBtn'), 'bhhLayersBtnHandle', 'ui_layers_btn_pos');
+    makeDraggable(document.getElementById('stateBadge'), 'stateBadge', 'ui_state_badge_pos');
+
 
     // [BHH: INFO PANEL LOGIC END]
 
