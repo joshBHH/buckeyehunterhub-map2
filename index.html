@@ -257,7 +257,7 @@
   This just saves your state preference for future loaders.
 </p>
       <h4 style="margin-top:10px">Overlays</h4>
-      <div class="option"><span id="lblPublic">Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
+      <div class="option"><span>Public Hunting</span><input id="ovlPublic" type="checkbox"></div>
       <div class="option"><span id="lblCounties">Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
       <div class="option"><span id="lblWaterfowl">Waterfowl Zones</span><input id="ovlWaterfowl" type="checkbox"></div>
       <div class="option"><span>My Drawings</span><input id="ovlDraw" type="checkbox"></div>
@@ -684,6 +684,52 @@
     // [BHH: OVERLAYS – OHIO PUBLIC END]
 
     /*******************
+ * OVERLAYS: Indiana Public Hunting
+ *******************/
+// [BHH: OVERLAYS – IN PUBLIC START]
+const indianaPublic = L.geoJSON(null, {
+  style:{ color:'#8b5cf6', weight:2, fillOpacity:0.15 },
+  onEachFeature:(feat, layer)=>{
+    const p = feat && feat.properties ? feat.properties : {};
+    const preferred = ['NAME','AREA_NAME','UNIT_NAME','PROPERTY','SITE_NAME','COUNTY','ACRES','OWNER','AGENCY','STATUS','TYPE','ACCESS','SEASON'];
+    const headerKey = preferred.find(k=> k in p) || Object.keys(p)[0];
+    const name = headerKey ? String(p[headerKey]) : 'Public Hunting Area';
+    const keysOrdered = [...new Set([...preferred.filter(k=>k in p), ...Object.keys(p)])].slice(0,12);
+    const rows = keysOrdered.map(k=>`<div><span style="color:#a3b7a6">${k}:</span> ${String(p[k])}</div>`).join('');
+    layer.bindPopup(`<b>${name}</b><div style="margin-top:6px">${rows}</div>`);
+    layer.on('mouseover', ()=> layer.setStyle({weight:3}));
+    layer.on('mouseout',  ()=> layer.setStyle({weight:2}));
+  }
+});
+
+async function loadIndianaPublic(){
+  // 1) Try local file first (safe & offline-friendly)
+  try{
+    const localResp = await fetch('indiana_public_hunting.geojson', {cache:'reload'});
+    if(localResp.ok){
+      const localJson = await localResp.json();
+      indianaPublic.addData(localJson);
+      return;
+    }
+  }catch(e){ /* ignore local fail */ }
+
+  // 2) Optional: paste a live ArcGIS GeoJSON endpoint if/when you have it.
+  //    Leave blank for now so nothing breaks if it’s unavailable.
+  const arcgisUrl = ''; // e.g. 'https://.../MapServer/X/query?where=1%3D1&outFields=*&outSR=4326&f=geojson'
+  if(arcgisUrl){
+    try{
+      const r = await fetch(arcgisUrl);
+      const j = await r.json();
+      indianaPublic.addData(j);
+    }catch(err){ console.warn('IN public layer fetch failed', err); }
+  }
+}
+loadIndianaPublic();
+// [BHH: OVERLAYS – IN PUBLIC END]
+
+
+
+    /*******************
      * OVERLAYS: Ohio Counties + Labels
      *******************/
     // [BHH: OVERLAYS – COUNTIES START]
@@ -877,7 +923,7 @@ map.on('overlayremove',(e)=>{ if(e.layer===indianaCounties){ map.removeLayer(ind
     syncBaseRadio();
 
     // Overlay checkboxes
-    const ovlOhio      = document.getElementById('ovlOhio');
+    const ovlPublic    = document.getElementById('ovlPublic');
     const ovlCounties  = document.getElementById('ovlCounties');
     const ovlWaterfowl = document.getElementById('ovlWaterfowl');
     const ovlDraw      = document.getElementById('ovlDraw');
@@ -888,19 +934,37 @@ map.on('overlayremove',(e)=>{ if(e.layer===indianaCounties){ map.removeLayer(ind
 
 
     // These layers get toggled by the sheet
-    function syncOverlayChecks(){
-  ovlOhio.checked      = map.hasLayer(ohioPublic);
-  ovlCounties.checked  = (currentState === 'IN')
-    ? map.hasLayer(indianaCounties)
-    : map.hasLayer(ohioCounties);
+   function syncOverlayChecks(){
+  ovlPublic.checked    = map.hasLayer(ohioPublic) || map.hasLayer(indianaPublic);
+  ovlCounties.checked  = map.hasLayer(ohioCounties);
   ovlWaterfowl.checked = map.hasLayer(waterfowlZones);
   ovlDraw.checked      = map.hasLayer(drawnItems);
-  ovlMarks.checked     = map.hasLayer(markersLayer);
-  ovlTrack.checked     = map.hasLayer(trackLayer);
+  ovlMarks.checked     = map.hasLayer(markersLayer);   // defined later
+  ovlTrack.checked     = map.hasLayer(trackLayer);     // defined later
 }
 
 
-    ovlOhio.onchange      = ()=> ovlOhio.checked      ? ohioPublic.addTo(map)    : map.removeLayer(ohioPublic);
+
+    // choose the correct public layer based on currentState
+function applyPublicLayer(){
+  // remove both first, then add the one for the active state
+  map.removeLayer(ohioPublic);
+  map.removeLayer(indianaPublic);
+  const st = (typeof getState === 'function' ? getState() : 'OH');
+  if(st === 'IN'){ indianaPublic.addTo(map); }
+  else if(st === 'OH'){ ohioPublic.addTo(map); }
+  // (you can extend for more states later)
+}
+
+ovlPublic.onchange = ()=> {
+  if(ovlPublic.checked){
+    applyPublicLayer();
+  }else{
+    map.removeLayer(ohioPublic);
+    map.removeLayer(indianaPublic);
+  }
+};
+
     ovlCounties.onchange  = ()=> {
   if(currentState === 'IN'){
     if(ovlCounties.checked){ indianaCounties.addTo(map); indianaCountyLabels.addTo(map); refreshIndianaCountyLabels(); }
@@ -1412,6 +1476,11 @@ function setState(code, save = true) {
   if (save) localStorage.setItem(STORAGE_STATE, c);
   syncStateUI();
   onStateChanged();
+  // if Public Hunting is on, swap the layer to match the new state
+if (typeof ovlPublic !== 'undefined' && ovlPublic && ovlPublic.checked) {
+  applyPublicLayer();
+}
+
 }
 
 // Initial UI paint
