@@ -421,14 +421,16 @@
       <span>Ohio (OH)</span>
     </label>
   </div>
+  
+  <!-- Indiana — now enabled -->
+<div class="option">
+  <label style="display:flex;align-items:center;gap:10px; width:100%">
+    <input type="radio" name="bhhState" value="IN">
+    <span>Indiana (IN)</span>
+  </label>
+</div>
 
   <!-- Placeholders for future states (disabled for now so they don’t break overlays) -->
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="IN" disabled>
-      <span>Indiana (IN) — coming soon</span>
-    </label>
-  </div>
   <div class="option" style="opacity:.6; cursor:not-allowed">
     <label style="display:flex;align-items:center;gap:10px; width:100%">
       <input type="radio" name="bhhState" value="MI" disabled>
@@ -1218,54 +1220,89 @@
     // [BHH: STATE – LOGIC START]
 const STORAGE_STATE = 'bhh_state_code';
 
-const stateBadge  = document.getElementById('stateBadge');
-const stateSelect = document.getElementById('stateSelect');
-const stateReset  = document.getElementById('stateReset');
+// Elements
+const stateBadgeText = document.getElementById('stateBadgeText');  // <strong id="stateBadgeText">
+const stateSelect    = document.getElementById('stateSelect');     // Basemap sheet <select>
+const stateApplyBtn  = document.getElementById('stateApply');      // Basemap sheet "Set" button
+const menuStateBtn   = document.getElementById('menuState');       // bottom bar “State”
+const stateSheetRadios = Array.from(document.querySelectorAll('input[name="bhhState"]'));
 
+// Per-state map centers/zoom (add more later)
+const STATE_CFG = {
+  OH: { name: 'Ohio',   center: [40.4173, -82.9071], zoom: 7 },
+  IN: { name: 'Indiana',center: [39.905,  -86.2816], zoom: 7 },
+  // MI: { name:'Michigan', center:[44.3, -85.6], zoom: 6 },
+  // PA: { name:'Pennsylvania', center:[40.9, -77.8], zoom: 7 },
+  // KY: { name:'Kentucky', center:[37.8, -85.8], zoom: 7 },
+  // WV: { name:'West Virginia', center:[38.6, -80.6], zoom: 7 },
+};
+
+// Keep local copy in sync with storage/UI
 let currentState = (localStorage.getItem(STORAGE_STATE) || 'OH').toUpperCase();
 
-function getState(){ 
-  return currentState;
+function syncStateUI() {
+  // Badge
+  if (stateBadgeText) stateBadgeText.textContent = currentState;
+
+  // Basemap sheet <select>
+  if (stateSelect) stateSelect.value = currentState;
+
+  // State sheet radios
+  stateSheetRadios.forEach(r => { r.checked = (r.value.toUpperCase() === currentState); });
 }
 
-function setState(code, save=true){
+function onStateChanged() {
+  // Center/zoom
+  const cfg = STATE_CFG[currentState];
+  if (cfg) map.setView(cfg.center, cfg.zoom);
+
+  // Enable OH overlays only when OH is selected
+  const isOH = currentState === 'OH';
+
+  // The checkboxes exist earlier in the script
+  ovlOhio.disabled      = !isOH;
+  ovlCounties.disabled  = !isOH;
+  ovlWaterfowl.disabled = !isOH;
+
+  // If we left OH, force-remove OH-only layers & labels
+  if (!isOH) {
+    if (map.hasLayer(ohioPublic))    map.removeLayer(ohioPublic);
+    if (map.hasLayer(ohioCounties))  map.removeLayer(ohioCounties);
+    if (map.hasLayer(countyLabels))  map.removeLayer(countyLabels);
+    if (map.hasLayer(waterfowlZones))map.removeLayer(waterfowlZones);
+    ovlOhio.checked = ovlCounties.checked = ovlWaterfowl.checked = false;
+  }
+
+  // Later: when you add IN overlays, this is where we’ll load/toggle them
+  // based on `currentState === 'IN'`.
+}
+
+function setState(code, save = true) {
   const c = (code || 'OH').toUpperCase();
-  if(save) localStorage.setItem(STORAGE_STATE, c);
   currentState = c;
-
-  // update badge text
-  const badgeText = document.getElementById('stateBadgeText');
-  if (badgeText) badgeText.textContent = c;
-
-  // keep the select in sync
-  if (stateSelect) stateSelect.value = c;
+  if (save) localStorage.setItem(STORAGE_STATE, c);
+  syncStateUI();
+  onStateChanged();
 }
 
-function syncStateUI(){
-  const c = getState();
-  const badgeText = document.getElementById('stateBadgeText');
-  if (badgeText) badgeText.textContent = c;
-  if (stateSelect) stateSelect.value = c;
-}
-
-// open sheet from bottom menu or by tapping the badge
-const menuStateBtn = document.getElementById('menuState');
-if (menuStateBtn) menuStateBtn.onclick = () => openSheet('state');
-if (stateBadge)   stateBadge.addEventListener('click', () => openSheet('state'));
-
-// handle changes
-if (stateSelect) stateSelect.addEventListener('change', () => setState(stateSelect.value));
-if (stateReset){
-  stateReset.addEventListener('click', () => {
-    setState('OH');
-    syncStateUI();
-    closeSheets();
-  });
-}
-
-// initialize UI once at load
+// Initial UI paint
 syncStateUI();
+onStateChanged();
+
+// Open the dedicated State sheet from the bottom bar and by tapping the badge
+if (menuStateBtn) menuStateBtn.onclick = () => openSheet('state');
+const stateBadge = document.getElementById('stateBadge');
+if (stateBadge) stateBadge.addEventListener('click', () => openSheet('state'));
+
+// Handle State sheet radios (OH/IN/etc.)
+stateSheetRadios.forEach(r => {
+  r.addEventListener('change', () => setState(r.value));
+});
+
+// Handle Basemap sheet <select> + “Set” button
+if (stateApplyBtn) stateApplyBtn.onclick = () => { setState(stateSelect.value); closeSheets(); };
 // [BHH: STATE – LOGIC END]
+
 
 
     /*******************
