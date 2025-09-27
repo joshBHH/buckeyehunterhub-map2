@@ -211,6 +211,7 @@
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
       <button id="menuAlmanac">Almanac</button>
       <button id="menuTools">Tools</button>
+      <button id="btnDeleteMode">Delete: Off</button>
       <button id="menuState">State</button>
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
@@ -1959,10 +1960,13 @@ fileInput.onchange = (ev) => {
   r.readAsText(f);
 };
 
-btnDelete.onclick = () => {
-  deleteMode = !deleteMode;
-  btnDelete.textContent = `Delete: ${deleteMode? 'On':'Off'}`;
-};
+if (btnDelete) {
+  btnDelete.onclick = () => {
+    deleteMode = !deleteMode;
+    btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
+  };
+}
+
 
     /*******************
      * PWA: service worker
