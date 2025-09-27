@@ -226,6 +226,25 @@
       <div class="option" data-radio="basemap" data-value="satellite"><span>Satellite</span><input type="radio" name="basemap" value="satellite"></div>
       <div class="option" data-radio="basemap" data-value="topo"><span>Topographic</span><input type="radio" name="basemap" value="topo"></div>
       <div class="option" data-radio="basemap" data-value="hybrid"><span>Hybrid</span><input type="radio" name="basemap" value="hybrid"></div>
+      <!-- State selector (UI only; loading will come later) -->
+<h4 style="margin-top:10px">State</h4>
+<div class="option" style="gap:10px">
+  <span>Select state</span>
+  <div style="display:flex; gap:8px; align-items:center">
+    <select id="stateSelect">
+      <option value="OH">Ohio</option>
+      <option value="MI">Michigan</option>
+      <option value="PA">Pennsylvania</option>
+      <option value="IN">Indiana</option>
+      <option value="KY">Kentucky</option>
+      <option value="WV">West Virginia</option>
+    </select>
+    <button class="btn" id="stateApply" type="button">Set</button>
+  </div>
+</div>
+<p class="tag" style="margin:6px 16px 0">
+  This just saves your state preference for future loaders.
+</p>
       <h4 style="margin-top:10px">Overlays</h4>
       <div class="option"><span>Ohio Public Hunting</span><input id="ovlOhio" type="checkbox"></div>
       <div class="option"><span>Ohio Counties</span><input id="ovlCounties" type="checkbox"></div>
@@ -454,6 +473,20 @@
       if(k && baseByKey[k]) setBasemap(k);
     })();
     // [BHH: MAP INIT END]
+
+    /*******************
+ * STATE SELECTOR — Part 1 (UI state only; no loaders yet)
+ *******************/
+const STORAGE_STATE = 'bhh_state_code';
+let currentState = localStorage.getItem(STORAGE_STATE) || 'OH';
+
+function setState(code){
+  currentState = code || 'OH';
+  localStorage.setItem(STORAGE_STATE, currentState);
+  // Future parts will hook into this to load state-specific overlays.
+  console.log('[BHH] State set to', currentState);
+}
+
 
     /*******************
      * DRAWING LAYERS (toolbar removed, storage intact)
@@ -705,6 +738,19 @@
     const ovlDraw      = document.getElementById('ovlDraw');
     const ovlMarks     = document.getElementById('ovlMarks');
     const ovlTrack     = document.getElementById('ovlTrack');
+
+    // --- State selector controls ---
+const stateSelect = document.getElementById('stateSelect');
+const stateApply  = document.getElementById('stateApply');
+
+if (stateSelect) stateSelect.value = currentState;
+if (stateApply) {
+  stateApply.onclick = () => {
+    setState(stateSelect.value);
+    alert('State set to ' + stateSelect.options[stateSelect.selectedIndex].text + '.');
+  };
+}
+
 
     // These layers get toggled by the sheet
     function syncOverlayChecks(){
@@ -1202,7 +1248,13 @@
       sheetBg.classList.add('show');
       sheetMap[which].classList.add('show');
       if(which==='waypoints') refreshWaypointsUI();
-      if(which==='basemap'){ syncOverlayChecks(); syncBaseRadio(); }
+      if(which==='basemap'){
+  syncOverlayChecks();
+  syncBaseRadio();
+  // keep the State selector showing the saved value
+  if (stateSelect) stateSelect.value = currentState;
+}
+
       if(which==='moon'){ renderMoon(); }
       if(which==='score'){ computeHuntScore(); }
       if(which==='compass'){ rebuildCompassTargets(); updateCompassReadout(); }
