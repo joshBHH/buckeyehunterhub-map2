@@ -780,15 +780,47 @@ function buildIndianaCountyLabels(){
 }
 
 async function loadIndianaCounties(){
+  // Try US Census TIGER/Cartographic counties for Indiana (GeoJSON)
+  const primary = 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json';
+  try {
+    const r = await fetch(primary, { cache: 'reload' });
+    if (r.ok) {
+      const j = await r.json();
+      // Filter to Indiana by state FIPS "18"
+      const onlyIN = {
+        type: 'FeatureCollection',
+        features: (j.features || []).filter(f => {
+          const fips = (f.id || '').toString();
+          return fips.slice(0,2) === '18';
+        }).map(f => ({
+          type:'Feature',
+          geometry: f.geometry,
+          properties: { NAME: (f.properties && f.properties.NAME) || 'County' }
+        }))
+      };
+      if (onlyIN.features.length) {
+        indianaCounties.addData(onlyIN);
+        buildIndianaCountyLabels();
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Primary IN counties source failed', e);
+  }
+
+  // Fallback: ArcGIS USA_Counties filtered to Indiana
   try{
-    // ESRI “USA Counties” filtered to Indiana, GeoJSON out
     const url = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Counties/FeatureServer/0/query?where=STATE_NAME%3D%27Indiana%27&outFields=NAME&outSR=4326&f=geojson';
     const r = await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json();
     indianaCounties.addData(j);
     buildIndianaCountyLabels();
-  }catch(e){ console.warn('Indiana counties layer fetch failed', e); }
+  }catch(e){
+    console.error('Indiana counties layer fetch failed', e);
+  }
 }
+
 loadIndianaCounties();
 
 map.on('zoomend', refreshIndianaCountyLabels);
@@ -1323,41 +1355,55 @@ function syncStateUI() {
 }
 
 function onStateChanged() {
-  // Center/zoom
+  // remember whether the user wanted counties visible
+  const wantedCounties =
+    ovlCounties && (
+      ovlCounties.checked ||
+      map.hasLayer(ohioCounties) ||
+      map.hasLayer(indianaCounties)
+    );
+
+  // center/zoom
   const cfg = STATE_CFG[currentState];
   if (cfg) map.setView(cfg.center, cfg.zoom);
 
-  // Update overlay row labels to reflect the active state
+  // label text
   const lblPublic    = document.getElementById('lblPublic');
   const lblCounties  = document.getElementById('lblCounties');
   const lblWaterfowl = document.getElementById('lblWaterfowl');
-
   if (lblCounties)  lblCounties.textContent  = (currentState === 'IN') ? 'Indiana Counties' : 'Ohio Counties';
   if (lblPublic)    lblPublic.textContent    = (currentState === 'IN') ? 'Indiana Public Hunting (coming soon)' : 'Ohio Public Hunting';
   if (lblWaterfowl) lblWaterfowl.textContent = (currentState === 'IN') ? 'Waterfowl Zones (coming soon)' : 'Waterfowl Zones';
 
-  // Ohio-only overlays remain OH-only for now
+  // enable/disable OH-only overlays
   const isOH = currentState === 'OH';
   ovlOhio.disabled      = !isOH;
   ovlWaterfowl.disabled = !isOH;
-
-  // Counties checkbox is available in both states
   ovlCounties.disabled  = false;
 
-  // Remove layers that don't belong to the new state
-  if (currentState === 'IN') {
-    if (map.hasLayer(ohioPublic))     map.removeLayer(ohioPublic);
-    if (map.hasLayer(ohioCounties))   map.removeLayer(ohioCounties);
-    if (map.hasLayer(countyLabels))   map.removeLayer(countyLabels);
-    if (map.hasLayer(waterfowlZones)) map.removeLayer(waterfowlZones);
-  } else { // switched back to OH
-    if (map.hasLayer(indianaCounties))      map.removeLayer(indianaCounties);
-    if (map.hasLayer(indianaCountyLabels))  map.removeLayer(indianaCountyLabels);
+  // remove any counties layers from the previous state
+  if (map.hasLayer(ohioCounties))         map.removeLayer(ohioCounties);
+  if (map.hasLayer(countyLabels))         map.removeLayer(countyLabels);
+  if (map.hasLayer(indianaCounties))      map.removeLayer(indianaCounties);
+  if (map.hasLayer(indianaCountyLabels))  map.removeLayer(indianaCountyLabels);
+
+  // re-add the correct one if the user wanted counties visible
+  if (wantedCounties) {
+    if (currentState === 'IN') {
+      indianaCounties.addTo(map);
+      indianaCountyLabels.addTo(map);
+      refreshIndianaCountyLabels();
+    } else {
+      ohioCounties.addTo(map);
+      countyLabels.addTo(map);
+      refreshCountyLabels();
+    }
   }
 
-  // Keep the checkbox text in sync with the actual active layer
+  // sync the checkbox to what’s actually on the map
   syncOverlayChecks();
 }
+
 
 
 function setState(code, save = true) {
