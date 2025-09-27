@@ -935,7 +935,6 @@
       }
     }
 
-    document.getElementById('bhhLayersBtnHandle').onclick = ()=> openSheet('basemap');
     const windRefreshBtn = document.getElementById('windRefresh');
     const coneToggle = document.getElementById('coneToggle');
     const coneWidth = document.getElementById('coneWidth');
@@ -1222,7 +1221,6 @@ const stateBadge  = document.getElementById('stateBadge');
 const stateSelect = document.getElementById('stateSelect');
 const stateReset  = document.getElementById('stateReset');
 
-// keep a local copy and keep it in sync with localStorage/UI
 let currentState = (localStorage.getItem(STORAGE_STATE) || 'OH').toUpperCase();
 
 function getState(){ 
@@ -1238,34 +1236,25 @@ function setState(code, save=true){
   const badgeText = document.getElementById('stateBadgeText');
   if (badgeText) badgeText.textContent = c;
 
-  }
   // keep the select in sync
-  if(stateSelect) stateSelect.value = c;
-
+  if (stateSelect) stateSelect.value = c;
+}
 
 function syncStateUI(){
-  // ensure both badge and select reflect current state
   const c = getState();
-    const badgeText = document.getElementById('stateBadgeText');
+  const badgeText = document.getElementById('stateBadgeText');
   if (badgeText) badgeText.textContent = c;
-
-  if(stateSelect) stateSelect.value = c;
+  if (stateSelect) stateSelect.value = c;
 }
 
 // open sheet from bottom menu or by tapping the badge
 const menuStateBtn = document.getElementById('menuState');
-if(menuStateBtn) menuStateBtn.onclick = () => openSheet('state');
-if(stateBadge) stateBadge.addEventListener('click', () => openSheet('state'));
+if (menuStateBtn) menuStateBtn.onclick = () => openSheet('state');
+if (stateBadge)   stateBadge.addEventListener('click', () => openSheet('state'));
 
 // handle changes
-if(stateSelect) stateSelect.addEventListener('change', () => setState(stateSelect.value));
-    const stateApply = document.getElementById('stateApply');
-if (stateApply) stateApply.addEventListener('click', () => {
-  if (stateSelect) setState(stateSelect.value);
-  closeSheets();
-});
-
-if(stateReset){
+if (stateSelect) stateSelect.addEventListener('change', () => setState(stateSelect.value));
+if (stateReset){
   stateReset.addEventListener('click', () => {
     setState('OH');
     syncStateUI();
@@ -1276,6 +1265,7 @@ if(stateReset){
 // initialize UI once at load
 syncStateUI();
 // [BHH: STATE – LOGIC END]
+
 
     /*******************
      * LIVE GPS DOT + Locate button
@@ -1369,6 +1359,10 @@ syncStateUI();
     }
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
+
+    // Wire the floating “BHH Map Layers” button AFTER sheetMap/openSheet exist
+document.getElementById('bhhLayersBtnHandle').onclick = ()=> openSheet('basemap');
+
     
     // Inject a top-right × close button into every sheet and wire Esc-to-close
 (function installSheetCloseButtons(){
