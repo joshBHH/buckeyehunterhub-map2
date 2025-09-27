@@ -183,6 +183,14 @@
     </div>
     <!-- [BHH: UI – LOGO END] -->
 
+    <!-- [BHH: UI – STATE BADGE START] -->
+<div id="stateBadge" aria-live="polite"
+     style="position:fixed;left:12px;top:12px;z-index:1300;background:#14271a;border:1px solid #25432b;border-radius:10px;padding:6px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35);font-size:13px;color:#e7f1e8">
+  State: <strong id="stateBadgeText">--</strong>
+</div>
+<!-- [BHH: UI – STATE BADGE END] -->
+
+
     <!-- [BHH: UI – INFO PANEL START] -->
     <!-- Field Info panel (hidden by default; draggable) -->
     <section class="panel" id="infoPanel" style="display:none;">
@@ -475,17 +483,28 @@
     // [BHH: MAP INIT END]
 
     /*******************
- * STATE SELECTOR — Part 1 (UI state only; no loaders yet)
+ * STATE SELECTOR — Part 2 (badge + change event)
  *******************/
 const STORAGE_STATE = 'bhh_state_code';
 let currentState = localStorage.getItem(STORAGE_STATE) || 'OH';
 
+function updateStateBadge() {
+  const el = document.getElementById('stateBadgeText');
+  if (el) el.textContent = currentState;
+}
+
 function setState(code){
   currentState = code || 'OH';
   localStorage.setItem(STORAGE_STATE, currentState);
-  // Future parts will hook into this to load state-specific overlays.
+  updateStateBadge();
+  // Broadcast for future loaders (Part 3)
+  window.dispatchEvent(new CustomEvent('bhh:state-changed', { detail: { state: currentState }}));
   console.log('[BHH] State set to', currentState);
 }
+
+// Initialize badge on load
+document.addEventListener('DOMContentLoaded', updateStateBadge);
+
 
 
     /*******************
