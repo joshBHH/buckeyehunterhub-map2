@@ -1259,6 +1259,12 @@ if(stateBadge) stateBadge.addEventListener('click', () => openSheet('state'));
 
 // handle changes
 if(stateSelect) stateSelect.addEventListener('change', () => setState(stateSelect.value));
+    const stateApply = document.getElementById('stateApply');
+if (stateApply) stateApply.addEventListener('click', () => {
+  if (stateSelect) setState(stateSelect.value);
+  closeSheets();
+});
+
 if(stateReset){
   stateReset.addEventListener('click', () => {
     setState('OH');
