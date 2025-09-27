@@ -269,54 +269,6 @@
   <div class="grab">
   </div>
 
-  <!-- State selector sheet -->
-<div class="sheet" id="stateSheet" aria-hidden="true">
-  <div class="grab"></div>
-  <h4>Select State</h4>
-
-  <div class="option">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="OH">
-      <span>Ohio (OH)</span>
-    </label>
-  </div>
-
-  <!-- Placeholders for future states (disabled for now so they don’t break overlays) -->
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="IN" disabled>
-      <span>Indiana (IN) — coming soon</span>
-    </label>
-  </div>
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="MI" disabled>
-      <span>Michigan (MI) — coming soon</span>
-    </label>
-  </div>
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="PA" disabled>
-      <span>Pennsylvania (PA) — coming soon</span>
-    </label>
-  </div>
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="KY" disabled>
-      <span>Kentucky (KY) — coming soon</span>
-    </label>
-  </div>
-  <div class="option" style="opacity:.6; cursor:not-allowed">
-    <label style="display:flex;align-items:center;gap:10px; width:100%">
-      <input type="radio" name="bhhState" value="WV" disabled>
-      <span>West Virginia (WV) — coming soon</span>
-    </label>
-  </div>
-
-  <p class="tag" style="padding:12px 16px">
-    For now, overlays are tuned for Ohio. Selecting other states is disabled so your map doesn’t break.
-  </p>
-</div>
 
   <h4>Tools</h4>
 
@@ -455,6 +407,55 @@
       <button class="btn" id="almanacClose">Close</button>
     </div>
   </div>
+</div>
+
+    <!-- State selector sheet -->
+<div class="sheet" id="stateSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h4>Select State</h4>
+
+  <div class="option">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="OH">
+      <span>Ohio (OH)</span>
+    </label>
+  </div>
+
+  <!-- Placeholders for future states (disabled for now so they don’t break overlays) -->
+  <div class="option" style="opacity:.6; cursor:not-allowed">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="IN" disabled>
+      <span>Indiana (IN) — coming soon</span>
+    </label>
+  </div>
+  <div class="option" style="opacity:.6; cursor:not-allowed">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="MI" disabled>
+      <span>Michigan (MI) — coming soon</span>
+    </label>
+  </div>
+  <div class="option" style="opacity:.6; cursor:not-allowed">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="PA" disabled>
+      <span>Pennsylvania (PA) — coming soon</span>
+    </label>
+  </div>
+  <div class="option" style="opacity:.6; cursor:not-allowed">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="KY" disabled>
+      <span>Kentucky (KY) — coming soon</span>
+    </label>
+  </div>
+  <div class="option" style="opacity:.6; cursor:not-allowed">
+    <label style="display:flex;align-items:center;gap:10px; width:100%">
+      <input type="radio" name="bhhState" value="WV" disabled>
+      <span>West Virginia (WV) — coming soon</span>
+    </label>
+  </div>
+
+  <p class="tag" style="padding:12px 16px">
+    For now, overlays are tuned for Ohio. Selecting other states is disabled so your map doesn’t break.
+  </p>
 </div>
 
     <!-- Moon phases sheet -->
@@ -1234,9 +1235,9 @@ function setState(code, save=true){
   currentState = c;
 
   // update badge text
-  if(stateBadge){
-    const span = stateBadge.querySelector('span');
-    if(span) span.textContent = `State: ${c}`;
+  const badgeText = document.getElementById('stateBadgeText');
+  if (badgeText) badgeText.textContent = c;
+
   }
   // keep the select in sync
   if(stateSelect) stateSelect.value = c;
@@ -1245,10 +1246,9 @@ function setState(code, save=true){
 function syncStateUI(){
   // ensure both badge and select reflect current state
   const c = getState();
-  if(stateBadge){
-    const span = stateBadge.querySelector('span');
-    if(span) span.textContent = `State: ${c}`;
-  }
+    const badgeText = document.getElementById('stateBadgeText');
+  if (badgeText) badgeText.textContent = c;
+
   if(stateSelect) stateSelect.value = c;
 }
 
