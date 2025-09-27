@@ -1222,6 +1222,64 @@ if (stateApply) {
     compAnchorRadios.forEach(r=> r.addEventListener('change', ()=> updateGuideLine()));
     map.on('moveend', ()=>{ const mode = (compAnchorRadios.find(r=>r.checked)||{}).value || 'gps'; if(mode==='center') updateGuideLine(); });
     // [BHH: COMPASS END]
+    
+    // [BHH: STATE – LOGIC START]
+const STORAGE_STATE = 'bhh_state_code';
+
+const stateBadge  = document.getElementById('stateBadge');
+const stateSelect = document.getElementById('stateSelect');
+const stateReset  = document.getElementById('stateReset');
+
+// keep a local copy and keep it in sync with localStorage/UI
+let currentState = (localStorage.getItem(STORAGE_STATE) || 'OH').toUpperCase();
+
+function getState(){ 
+  return currentState;
+}
+
+function setState(code, save=true){
+  const c = (code || 'OH').toUpperCase();
+  if(save) localStorage.setItem(STORAGE_STATE, c);
+  currentState = c;
+
+  // update badge text
+  if(stateBadge){
+    const span = stateBadge.querySelector('span');
+    if(span) span.textContent = `State: ${c}`;
+  }
+  // keep the select in sync
+  if(stateSelect) stateSelect.value = c;
+}
+
+function syncStateUI(){
+  // ensure both badge and select reflect current state
+  const c = getState();
+  if(stateBadge){
+    const span = stateBadge.querySelector('span');
+    if(span) span.textContent = `State: ${c}`;
+  }
+  if(stateSelect) stateSelect.value = c;
+}
+
+// open sheet from bottom menu or by tapping the badge
+const menuStateBtn = document.getElementById('menuState');
+if(menuStateBtn) menuStateBtn.onclick = () => openSheet('state');
+if(stateBadge) stateBadge.addEventListener('click', () => openSheet('state'));
+
+// handle changes
+if(stateSelect) stateSelect.addEventListener('change', () => setState(stateSelect.value));
+if(stateReset){
+  stateReset.addEventListener('click', () => {
+    setState('OH');
+    syncStateUI();
+    closeSheets();
+  });
+}
+
+// initialize UI once at load
+syncStateUI();
+// [BHH: STATE – LOGIC END]
+
     /*******************
      * LIVE GPS DOT + Locate button
      *******************/
