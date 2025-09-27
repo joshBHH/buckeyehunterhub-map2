@@ -533,31 +533,7 @@
       const k = localStorage.getItem(STORAGE_BASE);
       if(k && baseByKey[k]) setBasemap(k);
     })();
-    // [BHH: MAP INIT END]
-
-    /*******************
- * STATE SELECTOR — Part 2 (badge + change event)
- *******************/
-const STORAGE_STATE = 'bhh_state_code';
-let currentState = localStorage.getItem(STORAGE_STATE) || 'OH';
-
-function updateStateBadge() {
-  const el = document.getElementById('stateBadgeText');
-  if (el) el.textContent = currentState;
-}
-
-function setState(code){
-  currentState = code || 'OH';
-  localStorage.setItem(STORAGE_STATE, currentState);
-  updateStateBadge();
-  // Broadcast for future loaders (Part 3)
-  window.dispatchEvent(new CustomEvent('bhh:state-changed', { detail: { state: currentState }}));
-  console.log('[BHH] State set to', currentState);
-}
-
-// Initialize badge on load
-document.addEventListener('DOMContentLoaded', updateStateBadge);
-
+    // [BHH: MAP INIT END]  
 
 
     /*******************
@@ -1402,90 +1378,59 @@ toolDeleteToggle.onchange = () => {
   if (btnDelete) btnDelete.textContent = `Delete: ${deleteMode ? 'On' : 'Off'}`;
 };
 
-    /*******************
- * STATE SELECTOR (persist + apply)
- *******************/
-const STORAGE_STATE = 'bhh_state_code';
-
-// Per-state config (start with OH)
-const STATE_CFG = {
-  OH: { center:[40.4173,-82.9071], zoom: 7, overlays: { ohio:true, counties:true, waterfowl:true } }
-};
-
-// Update the little badge text if present (works with either id)
-function updateStateBadge(code){
-  const el = document.getElementById('bhhStateBadge') || document.getElementById('stateBadge') || document.getElementById('stateBadgeText');
-  if(!el) return;
-  // Accept both "State: XX" full element or a nested <span id="stateBadgeText">
-  if (el.id === 'stateBadgeText') el.textContent = code;
-  else el.textContent = `State: ${code}`;
-}
-
-// Enable/disable OH-only overlay controls when not in OH
-function applyStateUIAvailability(code){
-  const isOH = code === 'OH';
-  const pairs = [
-    ovlOhio && ovlOhio.parentElement,
-    ovlCounties && ovlCounties.parentElement,
-    ovlWaterfowl && ovlWaterfowl.parentElement
-  ].filter(Boolean);
-
-  // Dim row + disable checkbox for non-OH states
-  [ovlOhio, ovlCounties, ovlWaterfowl].forEach(cb=>{
-    if(!cb) return;
-    cb.disabled = !isOH;
-  });
-  pairs.forEach(row=> row.style.opacity = isOH ? '1' : '.5');
-
-  // If leaving OH, ensure those layers are off so nothing breaks
-  if(!isOH){
-    if(map.hasLayer(ohioPublic)) map.removeLayer(ohioPublic);
-    if(map.hasLayer(ohioCounties)) { map.removeLayer(ohioCounties); if(map.hasLayer(countyLabels)) map.removeLayer(countyLabels); }
-    if(map.hasLayer(waterfowlZones)) map.removeLayer(waterfowlZones);
-  }
-  // Keep the toggles in sync with actual layer on/off
-  syncOverlayChecks();
-}
-
-function setState(code){
-  const cfg = STATE_CFG[code] || STATE_CFG.OH;
-  localStorage.setItem(STORAGE_STATE, code);
-  updateStateBadge(code);
-  // Recenter to that state's default when changing
-  map.setView(cfg.center, cfg.zoom);
-  applyStateUIAvailability(code);
-}
-
-// Restore persisted state on load
-(function restoreState(){
-  const code = localStorage.getItem(STORAGE_STATE) || 'OH';
-  updateStateBadge(code);
-  applyStateUIAvailability(code);
-})();
-
-// Menu button -> open State sheet and preselect current
-const btnState = document.getElementById('menuState');
-if(btnState){
-  btnState.onclick = () => {
-    const code = localStorage.getItem(STORAGE_STATE) || 'OH';
-    const r = document.querySelector(`#stateSheet input[name="bhhState"][value="${code}"]`);
-    if(r) r.checked = true;
-    openSheet('state');
-  };
-}
-
-// Radio change -> apply state and close sheet
-document.querySelectorAll('#stateSheet input[name="bhhState"]').forEach(r=>{
-  r.addEventListener('change', ()=>{
-    setState(r.value);
-    closeSheets();
-  });
-});
-
+   
     
     // Wire overlay toggles that depend on layers defined previously
     ovlMarks.onchange = ()=> ovlMarks.checked ? markersLayer.addTo(map) : map.removeLayer(markersLayer);
     ovlTrack.onchange = ()=> ovlTrack.checked ? trackLayer.addTo(map) : map.removeLayer(trackLayer);
+
+    // [BHH: STATE – LOGIC START]
+const STORAGE_STATE = 'bhh_state_code';
+
+const stateBadge  = document.getElementById('stateBadge');
+const stateSelect = document.getElementById('stateSelect');
+const stateReset  = document.getElementById('stateReset');
+
+function getState(){
+  return localStorage.getItem(STORAGE_STATE) || 'OH';
+}
+function setState(code, save=true){
+  const c = (code || 'OH').toUpperCase();
+  if(save) localStorage.setItem(STORAGE_STATE, c);
+  // update badge text
+  if(stateBadge){
+    const span = stateBadge.querySelector('span');
+    if(span) span.textContent = `State: ${c}`;
+  }
+  // (You can add per-state logic here later, e.g. load different overlays)
+}
+function syncStateUI(){
+  const c = getState();
+  // badge text
+  const span = stateBadge && stateBadge.querySelector('span');
+  if(span) span.textContent = `State: ${c}`;
+  // select value
+  if(stateSelect) stateSelect.value = c;
+}
+
+// open State sheet from the badge and menu button
+document.getElementById('menuState').onclick = () => openSheet('state');
+stateBadge && stateBadge.addEventListener('click', () => openSheet('state'));
+
+// sheet controls
+stateSelect && stateSelect.addEventListener('change', () => {
+  setState(stateSelect.value);
+});
+stateReset && stateReset.addEventListener('click', () => {
+  setState('OH');
+  syncStateUI();
+  closeSheets();
+});
+
+// init once
+syncStateUI();
+// [BHH: STATE – LOGIC END]
+
     // [BHH: SHEET LOGIC END]
 
     /*******************
