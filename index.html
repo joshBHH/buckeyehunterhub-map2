@@ -485,6 +485,88 @@ if(stateSelectEl){
     
     // [BHH: MAP INIT END]
 
+/*******************
+ * OVERLAY LAYERS (constructors)
+ *******************/
+
+// 1) Public hunting (OH for now)
+const ohioPublic = L.geoJSON(null, {
+  style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
+  onEachFeature: (feat, layer) => {
+    const p = feat.properties || {};
+    const name = p.AREA_NAME || p.NAME || 'Public Hunting';
+    layer.bindPopup(`<b>${name}</b>`);
+    layer.on('mouseover', () => layer.setStyle({ weight:3 }));
+    layer.on('mouseout',  () => layer.setStyle({ weight:2 }));
+  }
+});
+
+// 2) Counties + labels
+const ohioCounties = L.geoJSON(null, {
+  style: { color:'#eab308', weight:1.5, fillOpacity:0.05 }
+});
+const countyLabels = L.layerGroup();
+
+function buildCountyLabels(){
+  countyLabels.clearLayers();
+  ohioCounties.eachLayer(l=>{
+    const name = l.feature?.properties?.County_Name || l.feature?.properties?.NAME || 'County';
+    const c = l.getBounds ? l.getBounds().getCenter() : null;
+    if(!c) return;
+    L.marker(c, {
+      interactive:false,
+      icon: L.divIcon({
+        className:'',
+        html:`<div class="county-label">${name}</div>`
+      })
+    }).addTo(countyLabels);
+  });
+}
+function refreshCountyLabels(){ buildCountyLabels(); }
+
+// 3) Waterfowl zones (with stale-year warning in popup)
+const waterfowlZones = L.geoJSON(null, {
+  style: { color:'#22c55e', weight:2, fillOpacity:0.15 },
+  onEachFeature: (feat, layer) => {
+    const p = feat.properties || {};
+    const name  = p.Zone_ || p.ZONE_NAME || 'Waterfowl Zone';
+    const duck  = p.DuckSeason || p.DUCK_SEASON || '';
+    const goose = p.GooseSeason || p.GOOSE_SEASON || '';
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const allowed = new Set([y, y + 1]);
+    const yearsIn = (txt) => (String(txt).match(/\b(20\d{2})\b/g) || []).map(n => parseInt(n, 10));
+    const fresh = (txt) => {
+      const yrs = yearsIn(txt);
+      if (yrs.length === 0) return true;
+      return yrs.some(yr => allowed.has(yr));
+    };
+
+    const row = (label, val) => {
+      if (!val) return '';
+      const ok = fresh(val);
+      const warn = ok ? '' : ` <span style="color:#f59e0b">⚠︎ stale</span>`;
+      return `<div><span style="color:#a3b7a6">${label}:</span> ${val}${warn}</div>`;
+    };
+
+    const regsUrl = 'https://ohiodnr.gov/discover-and-learn/land-water/hunting-resources/hunting-regulations';
+    const body = [
+      row('Duck', duck),
+      row('Goose', goose),
+      `<div style="margin-top:6px"><a href="${regsUrl}" target="_blank" rel="noopener">Check current regulations ↗</a></div>`
+    ].join('');
+
+    layer.bindPopup(`<b>${name}</b>${body ? `<div style="margin-top:6px">${body}</div>` : ''}`);
+    layer.on('mouseover', () => layer.setStyle({ weight: 3 }));
+    layer.on('mouseout',  () => layer.setStyle({ weight: 2 }));
+  }
+});
+
+// Initial per-state load (populate the layers once on startup)
+updateOverlaysForState(getState());
+
+    
     /*******************
      * DRAWING LAYERS (toolbar removed, storage intact)
      *******************/
@@ -722,7 +804,7 @@ async function loadWaterfowlZones(state){
   waterfowlZones.clearLayers();
   if(state === 'OH'){
     try{
-      const url = 'https://gis2.ohiodnr.gov/ArcGIS/rest/services/DOW_Services/Hunting_Regulations/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson';
+      const url = `https://gis2.ohiodnr.gov/ArcGIS/rest/services/DOW_Services/Hunting_Regulations/MapServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&_=${Date.now()}`; 
       const r = await fetch(url);
       const j = await r.json();
       waterfowlZones.addData(j);
