@@ -1360,8 +1360,14 @@ syncStateUI();
     function closeSheets(){ sheetBg.classList.remove('show'); Object.values(sheetMap).forEach(s=> s.classList.remove('show')); }
     sheetBg.onclick = closeSheets;
 
-    // Wire the floating “BHH Map Layers” button AFTER sheetMap/openSheet exist
-document.getElementById('bhhLayersBtnHandle').onclick = ()=> openSheet('basemap');
+ // Wire the floating “BHH Map Layers” button AFTER sheetMap/openSheet exist (guarded)
+(function(){
+  const layersBtnHandle = document.getElementById('bhhLayersBtnHandle');
+  if (layersBtnHandle) {
+    layersBtnHandle.onclick = () => openSheet('basemap');
+  }
+})();
+
 
     
     // Inject a top-right × close button into every sheet and wire Esc-to-close
