@@ -879,7 +879,7 @@ map.on('overlayremove',(e)=>{ if(e.layer===indianaCounties){ map.removeLayer(ind
   }
 };
 
-    };
+    ;
     ovlWaterfowl.onchange = ()=> ovlWaterfowl.checked ? waterfowlZones.addTo(map) : map.removeLayer(waterfowlZones);
     ovlDraw.onchange      = ()=> ovlDraw.checked      ? drawnItems.addTo(map)    : map.removeLayer(drawnItems);
     // ovlMarks & ovlTrack handlers will be wired after those layers are defined
