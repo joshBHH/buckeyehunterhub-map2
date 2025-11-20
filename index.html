@@ -14,54 +14,26 @@
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-
-  <style>
-    :root{
-      --bg:#0b1a0f;--panel:#101f14;--accent:#6dbc5d;--text:#e7f1e8;--shadow:0 12px 30px rgba(0,0,0,.35);--safe-bottom:env(safe-area-inset-bottom,0px);--logo-size:128px;
-    }
-    html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif}
-    #map{position:fixed;inset:0;height:100dvh}
-    .map-logo{position:fixed;right:12px;top:12px;z-index:1300;pointer-events:none}
-    .map-logo img{height:var(--logo-size);border-radius:10px;background:rgba(16,31,20,.6);padding:6px;box-shadow:var(--shadow)}
-    #bhhLayersBtn{position:fixed;top:12px;left:12px;z-index:1300}
-    #bhhLayersBtn button{background:var(--panel);border:1px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:12px;font-weight:bold;box-shadow:var(--shadow)}
-    #stateBadge{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1300;background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:6px 12px;font-weight:bold;box-shadow:var(--shadow)}
-    .main-menu{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;gap:8px;justify-content:space-around;padding:10px 12px calc(10px + var(--safe-bottom));background:linear-gradient(180deg,rgba(11,26,15,.1),rgba(11,26,15,.85));backdrop-filter:blur(8px);border-top:1px solid #203325;flex-wrap:nowrap;overflow-x:auto}
-    .main-menu button{flex:0 0 auto;min-width:100px;padding:10px;border:1px solid #25432b;border-radius:12px;background:#14271a;color:var(--text);font-size:14px;cursor:pointer}
-    .main-menu button[data-shop]{background:var(--accent);color:#000;font-weight:bold}
-    .wind-btn{gap:8px}
-    .wind-arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--text);display:inline-block;transform:rotate(0deg)}
-    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1199;display:none}
-    .backdrop.show{display:block}
-    .sheet{position:fixed;left:0;right:0;bottom:0;z-index:1200;background:var(--panel);border-top:1px solid #203325;border-radius:16px 16px 0 0;box-shadow:var(--shadow);transform:translateY(110%);transition:transform .25s ease}
-    .sheet.show{transform:translateY(0)}
-    .sheet .grab{width:36px;height:4px;background:#2b4231;border-radius:999px;margin:8px auto}
-    .sheet .close-x{position:absolute;top:8px;right:12px;width:32px;height:32px;background:#14271a;border:1px solid #25432b;border-radius:50%;font-size:18px;line-height:30px;text-align:center;cursor:pointer}
-    .content{padding:0 16px 16px}
-    .option{padding:12px 0;border-bottom:1px solid #1d3323;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-    .option:last-child{border-bottom:none}
-    .leaflet-control-zoom{margin-top:120px !important}
-    @media (max-width:640px){
-      :root{--logo-size:80px}
-      #bhhLayersBtn{top:8px;left:8px}
-      #bhhLayersBtn button{padding:8px 12px;font-size:12px}
-      .map-logo{top:8px;right:8px}
-      #stateBadge{top:8px;padding:4px 8px;font-size:12px}
-      .main-menu{gap:4px;padding:8px calc(8px + var(--safe-bottom))}
-      .main-menu button{font-size:12px;min-width:90px;padding:8px 6px}
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <div id="map"></div>
 
     <div id="bhhLayersBtn"><button id="bhhLayersBtnHandle">BHH Map Layers</button></div>
+
     <div class="map-logo"><img src="Icons/bhh-logo.png" alt="Buckeye Hunter Hub"/></div>
+
     <div id="stateBadge">State: <strong id="stateBadgeText">Ohio</strong></div>
+
+    <section class="panel" id="infoPanel" style="display:none;">
+      <h3 id="infoHandle">📋 Field Info</h3>
+      <div class="row"><span>Sunrise</span><strong id="pSunrise" class="tag">--:--</strong></div>
+      <div class="row"><span>Sunset</span><strong id="pSunset" class="tag">--:--</strong></div>
+      <div class="row"><span>Day Length</span><strong id="pDay" class="tag">--h --m</strong></div>
+      <div class="row"><span>Track Distance</span><strong id="pTrkDist" class="tag">0 m</strong></div>
+      <div class="row"><span>Track Duration</span><strong id="pTrkDur" class="tag">0:00</strong></div>
+    </section>
 
     <nav class="main-menu" id="mainMenu">
       <button id="menuWind" class="wind-btn"><span class="wind-arrow" id="windArrow"></span><span id="windText">Wind: --</span></button>
@@ -72,8 +44,7 @@
       <button id="btnExport">Export</button>
       <button id="btnImport">Import</button>
       <button id="menuLocate">Locate Me</button>
-      <button id="btnLogin">Login</button>
-      <input type="file" id="fileImport" style="display:none">
+      <input type="file" id="fileImport" style="display:none" accept=".json,.geojson,.kml,.gpx">
     </nav>
 
     <div class="backdrop" id="sheetBackdrop"></div>
@@ -100,116 +71,8 @@
       </div>
     </div>
 
-    <div class="sheet" id="loginSheet">
-      <div class="grab"></div>
-      <button class="close-x">×</button>
-      <h4>Login</h4>
-      <div class="content">
-        <button id="googleLogin">Google</button>
-        <button id="emailLogin">Email</button>
-        <p class="tag">Login to sync waypoints across devices</p>
-      </div>
-    </div>
-
   </div>
 
-  <script type="module">
-    // YOUR FIREBASE CONFIG – ALREADY INSERTED
-    const firebaseConfig = {
-      apiKey: "AIzaSyDuQwSt0ePYbfPCWg67TBYQNxlwlOySh40",
-      authDomain: "buckeyehunterhubmap.firebaseapp.com",
-      projectId: "buckeyehunterhubmap",
-      storageBucket: "buckeyehunterhubmap.firebasestorage.app",
-      messagingSenderId: "956284365956",
-      appId: "1:956284365956:web:48bceee9612adb9b17e6d1",
-      measurementId: "G-ENHJW5B54W"
-    };
-    firebase.initializeApp(firebaseConfig);
-
-    let map, radarLayer = null, scentCone = null, currentState = localStorage.getItem('bhh_state_code') || 'OH';
-    const STATES = { OH: { name: 'Ohio', center: [40.4173, -82.9071], zoom: 7 }, IN: { name: 'Indiana', center: [39.8, -86.3], zoom: 7 }, MI: { name: 'Michigan', center: [44.3, -85.6], zoom: 6 }, PA: { name: 'Pennsylvania', center: [40.9, -77.8], zoom: 7 } };
-
-    map = L.map('map', { zoomControl: false }).setView(STATES[currentState].center, STATES[currentState].zoom);
-    L.tileLayer('https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=VLOZCnjQYBtgpZ3BXBK3', { attribution: '&copy; MapTiler' }).addTo(map);
-    L.control.zoom({ position: 'topleft' }).addTo(map);
-
-    // Radar
-    const ts = Math.floor(Date.now() / 600000) * 600000;
-    radarLayer = L.tileLayer(`https://tile.rainviewer.com/v2/radar/${ts}/256/{z}/{x}/{y}/8/1_1.png`, { opacity: 0.6 });
-    document.getElementById('toggleRadar')?.addEventListener('change', e => e.target.checked ? radarLayer.addTo(map) : map.removeLayer(radarLayer));
-
-    // Wind Cone
-    document.getElementById('menuWind')?.addEventListener('click', () => {
-      if (scentCone) { map.removeLayer(scentCone); scentCone = null; return; }
-      navigator.geolocation.getCurrentPosition(pos => {
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
-          .then(r => r.json()).then(data => {
-            const dir = data.current_weather.winddirection || 0;
-            scentCone = L.circle([pos.coords.latitude, pos.coords.longitude], { radius: 805, color: '#6dbc5d', fillOpacity: 0.25 }).addTo(map);
-            document.getElementById('windArrow').style.transform = `rotate(${dir - 90}deg)`;
-            document.getElementById('windText').textContent = `Wind: ${data.current_weather.windspeed} mph`;
-            map.setView([pos.coords.latitude, pos.coords.longitude], 16);
-          });
-      });
-    });
-
-    // Login Sheet
-    document.getElementById('btnLogin')?.addEventListener('click', () => {
-      document.getElementById('loginSheet').classList.add('show');
-      document.getElementById('sheetBackdrop').classList.add('show');
-    });
-
-    // Google Login
-    document.getElementById('googleLogin')?.addEventListener('click', () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithPopup(provider).then(result => {
-        alert('Logged in as ' + result.user.displayName);
-      }).catch(error => alert('Google login failed: ' + error.message));
-    });
-
-    // Email Login
-    document.getElementById('emailLogin')?.addEventListener('click', () => {
-      const email = prompt('Email:');
-      const password = prompt('Password:');
-      if (email && password) {
-        firebase.auth().signInWithEmailAndPassword(email, password).then(result => {
-          alert('Logged in as ' + result.user.email);
-        }).catch(error => alert('Email login failed: ' + error.message));
-      }
-    });
-
-    // Shop Gear
-    const shopBtn = document.createElement('button');
-    shopBtn.textContent = 'Shop Gear';
-    shopBtn.dataset.shop = 'true';
-    shopBtn.onclick = () => window.open('https://buckeyehunterhub.com/shop', '_blank');
-    document.getElementById('mainMenu').appendChild(shopBtn);
-
-    // State selector
-    document.querySelectorAll('input[name="bhhState"]').forEach(r => r.addEventListener('change', e => {
-      currentState = e.target.value;
-      localStorage.setItem('bhh_state_code', currentState);
-      document.getElementById('stateBadgeText').textContent = STATES[currentState].name;
-      map.setView(STATES[currentState].center, STATES[currentState].zoom);
-    }));
-
-    // UI
-    const backdrop = document.getElementById('sheetBackdrop');
-    document.getElementById('bhhLayersBtnHandle')?.addEventListener('click', () => {
-      document.getElementById('layersSheet').classList.add('show');
-      backdrop.classList.add('show');
-    });
-    document.getElementById('menuState')?.addEventListener('click', () => {
-      document.getElementById('stateSheet').classList.add('show');
-      backdrop.classList.add('show');
-    });
-    backdrop.addEventListener('click', () => {
-      document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
-      backdrop.classList.remove('show');
-    });
-    document.querySelectorAll('.close-x').forEach(x => x.addEventListener('click', () => backdrop.click()));
-
-    console.log("Buckeye Hunter Hub Map – Google + Email Login LIVE – Nov 19 2025");
-  </script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
