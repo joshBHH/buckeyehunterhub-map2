@@ -14,7 +14,7 @@
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 
-  <!-- Firebase for Google + Email Login (free) -->
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
@@ -114,14 +114,15 @@
   </div>
 
   <script type="module">
-    // REPLACE THIS WITH YOUR FIREBASE CONFIG FROM CONSOLE
+    // YOUR FIREBASE CONFIG – ALREADY INSERTED
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abc123"
+      apiKey: "AIzaSyDuQwSt0ePYbfPCWg67TBYQNxlwlOySh40",
+      authDomain: "buckeyehunterhubmap.firebaseapp.com",
+      projectId: "buckeyehunterhubmap",
+      storageBucket: "buckeyehunterhubmap.firebasestorage.app",
+      messagingSenderId: "956284365956",
+      appId: "1:956284365956:web:48bceee9612adb9b17e6d1",
+      measurementId: "G-ENHJW5B54W"
     };
     firebase.initializeApp(firebaseConfig);
 
@@ -166,7 +167,7 @@
       }).catch(error => alert('Google login failed: ' + error.message));
     });
 
-    // Email Login (simple prompt – replace with full form later if needed)
+    // Email Login
     document.getElementById('emailLogin')?.addEventListener('click', () => {
       const email = prompt('Email:');
       const password = prompt('Password:');
@@ -208,7 +209,7 @@
     });
     document.querySelectorAll('.close-x').forEach(x => x.addEventListener('click', () => backdrop.click()));
 
-    console.log("Buckeye Hunter Hub Map – Google + Email Login Added – Mobile/Desktop Perfect – Nov 19 2025");
+    console.log("Buckeye Hunter Hub Map – Google + Email Login LIVE – Nov 19 2025");
   </script>
 </body>
 </html>
